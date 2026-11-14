@@ -1,0 +1,20 @@
+Cartellino
+Copyright (c) 2026 DigitalValut. Tutti i diritti riservati.
+
+Questo software (codice sorgente, app compilata, pagina web e Area azienda) è di
+proprietà di DigitalValut ed è protetto dalla legge sul diritto d'autore
+(L. 633/1941).
+
+Senza un contratto di licenza scritto con DigitalValut è vietato copiarlo,
+modificarlo, distribuirlo, rivenderlo, darlo in uso a terzi, decompilarlo o
+togliere i controlli di licenza.
+
+Le aziende clienti possono usarlo solo alle condizioni del contratto di licenza
+firmato con DigitalValut, e solo finché la licenza è attiva.
+
+Il software contiene componenti di terzi distribuiti con licenze open source
+(per esempio MIT). Quei componenti restano soggetti alle loro licenze, i cui
+testi si trovano nei relativi pacchetti (cartella node_modules) e, per il
+generatore di QR, in admin/qrcode.js.
+
+Contatti: DigitalValut.
