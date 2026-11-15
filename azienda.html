@@ -179,7 +179,17 @@
     </div>
     <div id="dropBox" class="hidden">
       <p class="muted"><span class="ok">✓ Pronto.</span> Trascina qui i file che ti hanno mandato i dipendenti (anche tanti insieme).</p>
-      <div id="drop" role="button" tabindex="0"><b>Trascina qui i report</b><br>oppure clicca per sceglierli</div>
+      <div id="inbox" style="border:2px solid #93c5fd;background:#eff6ff;border-radius:14px;padding:14px 16px;margin-bottom:12px">
+        <b style="font-size:17px">📥 Casella dei report</b>
+        <p class="note" style="margin:4px 0 10px">Salva i file che ricevi (WhatsApp, email) sempre nella stessa cartella, per esempio <b>Download</b>
+          o una cartella di OneDrive/Google Drive. Scegli la cartella una volta: poi basta <b>un clic</b> per importare tutti i report nuovi.</p>
+        <div class="row">
+          <button class="primary" id="inboxImport">📥 Importa i nuovi report</button>
+          <button id="inboxChoose">Scegli la cartella…</button>
+          <span class="note" id="inboxState"></span>
+        </div>
+      </div>
+      <div id="drop" role="button" tabindex="0"><b>Oppure trascina qui i report</b><br>o clicca per sceglierli uno per uno</div>
       <input type="file" id="reportFiles" multiple accept=".json,application/json">
       <ul class="files" id="fileList"></ul>
       <div class="row" style="margin-top:12px">
@@ -3315,7 +3325,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611150737"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611150838"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3492,6 +3502,7 @@ var qrcode = function() {
     $("dropBox").classList.remove("hidden");
     renderPlaces();
     loadArchive().then(reopenFiles);
+    refreshInboxState();
   }
   $("unlockBtn").onclick = unlock;
   $("unlockPwd").addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
@@ -3537,6 +3548,71 @@ var qrcode = function() {
     }
   }
 
+  // ------------------------------------------------ casella dei report (una cartella scelta una volta)
+  const INBOX_DB = "cartellino-casella";
+  function inboxDb() {
+    return new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error("no idb")); return; }
+      const r = indexedDB.open(INBOX_DB, 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("cartella");
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+  }
+  async function inboxSaveHandle(h) {
+    try { const db = await inboxDb(); await new Promise((res, rej) => { const tx = db.transaction("cartella", "readwrite"); tx.objectStore("cartella").put(h, state.company.code); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch { /* il browser non salva */ }
+  }
+  async function inboxLoadHandle() {
+    try { const db = await inboxDb(); return await new Promise((res) => { const r = db.transaction("cartella").objectStore("cartella").get(state.company.code); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }); } catch { return null; }
+  }
+  /** Legge i report della cartella (e delle sottocartelle di primo livello) e importa solo quelli nuovi. */
+  async function importFromDirectory(dir) {
+    const found = [];
+    const walk = async (d, depth) => {
+      for await (const entry of d.values()) {
+        if (entry.kind === "file" && /\.cartellino\.json$/i.test(entry.name)) found.push(entry);
+        else if (entry.kind === "directory" && depth < 1) await walk(entry, depth + 1);
+      }
+    };
+    await walk(dir, 0);
+    const before = state.files.length;
+    const files = [];
+    for (const e of found) { try { files.push(await e.getFile()); } catch { /* file non leggibile: saltato */ } }
+    await addFiles(files);
+    const nuovi = state.files.filter((x, i) => i >= before && !/^bad\|/.test(x.status || "")).length;
+    $("inboxState").textContent = `Cartella "${dir.name}": ${found.length} report trovati, ${nuovi} nuovi importati.`;
+    return { found: found.length, nuovi };
+  }
+  window.__cartellinoImportDirectory = importFromDirectory; // usato dai test automatici
+  const canPickFolder = typeof window.showDirectoryPicker === "function";
+  async function refreshInboxState() {
+    const h = await inboxLoadHandle();
+    $("inboxState").textContent = !canPickFolder
+      ? "Per la casella usa Google Chrome o Microsoft Edge (con questo browser trascina i file qui sotto)."
+      : h ? `Cartella scelta: "${h.name}"` : "Nessuna cartella scelta.";
+    $("inboxImport").disabled = !canPickFolder;
+    $("inboxChoose").disabled = !canPickFolder;
+  }
+  $("inboxChoose").onclick = async () => {
+    try {
+      const h = await window.showDirectoryPicker({ id: "cartellino-report", mode: "read" });
+      await inboxSaveHandle(h);
+      await importFromDirectory(h);
+    } catch (e) {
+      if (e && e.name !== "AbortError") showError("Non riesco ad aprire la cartella: " + (e.message || "errore imprevisto"));
+    }
+  };
+  $("inboxImport").onclick = async () => {
+    try {
+      let h = await inboxLoadHandle();
+      if (h && h.requestPermission && (await h.requestPermission({ mode: "read" })) !== "granted") h = null;
+      if (!h) { $("inboxChoose").click(); return; }
+      await importFromDirectory(h);
+    } catch (e) {
+      showError("Importazione non riuscita: " + (e && e.message ? e.message : "errore imprevisto"));
+    }
+  };
+
   async function addFiles(list) {
     clearError();
     const chosen = Array.from(list || []); // copia: l'elenco originale viene svuotato dal browser
@@ -3546,7 +3622,11 @@ var qrcode = function() {
         continue;
       }
       try {
-        state.files.push({ name: f.name, text: await f.text(), status: "" });
+        const text = await f.text();
+        // stesso contenuto già importato (anche con un altro nome): si salta
+        const key = L.bytesToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))));
+        if (state.files.some((x) => x.key === key)) continue;
+        state.files.push({ name: f.name, text, status: "", key });
       } catch {
         state.files.push({ name: f.name, text: "", status: "bad|Il file non si riesce a leggere (forse è danneggiato).", skip: true });
       }
@@ -3568,7 +3648,7 @@ var qrcode = function() {
         const who = [content.lastName, content.firstName].filter(Boolean).join(" ");
         const n = (content.attendances || []).length + (content.leaveRequests || []).length;
         f.status = `ok|${f.archived ? "Dall'archivio" : "Aperto"}: ${who ? who + " (" + content.cf + ")" : content.cf} · ${n} registrazioni`;
-        if (!f.key) f.key = await archivePut(f.name, f.text);
+        if (!f.archived) await archivePut(f.name, f.text);
         state.contents.push(content);
       } catch (e) {
         f.status = "bad|" + e.message;
@@ -3648,13 +3728,15 @@ var qrcode = function() {
     const summary = new Map(L.monthlySummary(state.shifts, d.leaves, m).map((r) => [r.cf, r]));
 
     // ---- Da fare
-    const pending = d.leaves.filter((l) => l.valid && !dec[l.id]).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const urgentLimit = ymd(new Date(Date.now() + 7 * 86400000));
+    const isUrgent = (l) => l.startDate <= urgentLimit;
+    const pending = d.leaves.filter((l) => l.valid && !dec[l.id]).sort((a, b) => (isUrgent(b) - isUrgent(a)) || a.startDate.localeCompare(b.startDate));
     const decided = d.leaves.filter((l) => l.valid && dec[l.id]).sort((a, b) => (dec[b.id].at || "").localeCompare(dec[a.id].at || "")).slice(0, 5);
     const monthStart = thisMonth + "-01";
     const noReport = cfs.filter((cf) => !(pe[cf] && pe[cf].uscito) && (!d.lastReport.get(cf) || ymd(new Date(d.lastReport.get(cf))) < monthStart));
     const todo = [];
     for (const l of pending) {
-      todo.push(`<li><span class="pill warn">Da decidere</span> <b>${esc(nameOf(l.cf))}</b> — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}
+      todo.push(`<li${isUrgent(l) ? ' style="background:#fef9c3;border-radius:8px;padding-left:8px"' : ""}>${isUrgent(l) ? '<span class="pill bad">⚡ URGENTE</span> ' : ""}<span class="pill warn">Da decidere</span> <b>${esc(nameOf(l.cf))}</b> — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}
         <span style="flex:1"></span><button class="btn-ok" data-act="approve" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✓ Approva</button>
         <button class="btn-no" data-act="reject" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✗ Rifiuta</button></li>`);
     }

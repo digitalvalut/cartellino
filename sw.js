@@ -3,9 +3,9 @@
  * - pagine: prima la rete (versione aggiornata), senza rete l'ultima copia salvata;
  * - file del programma e icone: dalla copia salvata (cambiano nome a ogni versione);
  * - elenco clienti (licenze.json): SEMPRE dalla rete, mai dalla copia (serve al blocco licenza).
- * "202611150737" viene sostituito a ogni pubblicazione.
+ * "202611150838" viene sostituito a ogni pubblicazione.
  */
-const CACHE = "cartellino-202611150737";
+const CACHE = "cartellino-202611150838";
 const PAGES = ["./", "attiva", "privacy", "login", "home", "leave", "manifest.json", "icon-192.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {
