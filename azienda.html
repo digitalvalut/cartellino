@@ -190,12 +190,12 @@
         </div>
       </div>
       <div id="drop" role="button" tabindex="0"><b>Oppure trascina qui i report</b><br>o clicca per sceglierli uno per uno</div>
-      <input type="file" id="reportFiles" multiple accept=".json,application/json">
+      <input type="file" id="reportFiles" multiple accept=".json,.txt,application/json,text/plain">
       <ul class="files" id="fileList"></ul>
       <div class="row" style="margin-top:12px">
         <button id="backupSave">💾 Salva copia di sicurezza</button>
         <button id="backupLoad">↩️ Ripristina da una copia</button>
-        <input type="file" id="backupFile" accept=".json,application/json">
+        <input type="file" id="backupFile" accept=".json,.txt,application/json,text/plain">
         <span class="note">Mettila su una chiavetta: dentro ci sono report, decisioni, dipendenti e luoghi (i report restano cifrati).</span>
       </div>
     </div>
@@ -3325,7 +3325,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611150848"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611150923"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3570,7 +3570,7 @@ var qrcode = function() {
     const found = [];
     const walk = async (d, depth) => {
       for await (const entry of d.values()) {
-        if (entry.kind === "file" && /\.cartellino\.json$/i.test(entry.name)) found.push(entry);
+        if (entry.kind === "file" && /\.cartellino\.(json|txt)$/i.test(entry.name)) found.push(entry);
         else if (entry.kind === "directory" && depth < 1) await walk(entry, depth + 1);
       }
     };
