@@ -272,10 +272,20 @@
       <div class="row noprint">
         <label class="note">Mese <select id="month" style="width:auto"></select></label>
         <button class="primary btn-small" id="pdfBtn">📄 Report del mese (PDF)</button>
-        <button id="csvSummaryBtn">Scarica riepilogo (CSV)</button>
-        <button id="csvDetailBtn">Scarica presenze (CSV)</button>
+        <button id="xlsxBtn">📊 File per il consulente (Excel)</button>
+        <button class="primary btn-small" id="sendBtn">✉️ Invia al consulente</button>
       </div>
     </div>
+    <details class="noprint" id="rulesBox" style="margin:10px 0">
+      <summary style="cursor:pointer;font-weight:700">⚙️ Orario di lavoro e consulente</summary>
+      <div class="row" style="margin-top:10px;align-items:flex-end">
+        <label class="note">Ore normali al giorno<br><input id="ruleOre" type="number" min="1" max="24" step="0.5" style="width:90px"></label>
+        <label class="note"><input id="ruleSabato" type="checkbox"> Si lavora anche il sabato</label>
+        <label class="note">Santo patrono (gg/mm)<br><input id="rulePatrono" placeholder="es. 29/06" style="width:110px"></label>
+        <label class="note">Email del consulente<br><input id="ruleEmail" type="email" placeholder="consulente@esempio.it" style="width:240px"></label>
+      </div>
+      <p class="note">Oltre queste ore è <b>straordinario</b>. Il sabato (se non si lavora) è tutto straordinario; domeniche e feste sono <b>ore festive</b>; le <b>notturne</b> (22-6) sono già comprese. Il consulente applica il contratto (CCNL).</p>
+    </details>
     <div class="stats" id="stats"></div>
     <div class="tabs noprint" role="tablist">
       <button data-tab="dash" class="active">🏠 Cruscotto</button>
@@ -287,7 +297,7 @@
     </div>
     <div class="panel" data-panel="dash"><div id="dash"></div></div>
     <div class="panel hidden" data-panel="summary"><div class="tablewrap"><table id="tSummary"></table></div>
-      <p class="note">Ore calcolate solo su turni completi (ENTRATA + USCITA) con firma valida. Le assenze sono in giorni di calendario.</p></div>
+      <p class="note">Ore calcolate solo su turni completi (ENTRATA + USCITA) con firma valida. Le assenze sono in giorni di calendario (quelle rifiutate non contano).</p></div>
     <div class="panel hidden" data-panel="detail"><div class="tablewrap"><table id="tDetail"></table></div></div>
     <div class="panel hidden" data-panel="leaves"><div class="tablewrap"><table id="tLeaves"></table></div>
       <p class="note">Le note sulla malattia sono dati sanitari: mostrale solo a chi gestisce il personale.</p></div>
@@ -3173,11 +3183,91 @@ var qrcode = function() {
     return e < s ? 0 : Math.round((e - s) / 86400000) + 1;
   }
 
+  // ------------------------------------------------------ orario: ordinarie, straordinario, festive, notturne
+  // Regole scelte dal datore nell'Area azienda (il consulente può correggerle):
+  //   oreGiorno = ore ordinarie in un giorno lavorativo; sabato = true se si lavora anche il sabato;
+  //   patrono = "MM-GG" del santo patrono (festivo) oppure "".
+  const DEFAULT_RULES = { oreGiorno: 8, sabato: false, patrono: "" };
+  const NIGHT_FROM = 22 * 60, NIGHT_TO = 6 * 60;
+  const FIXED_HOLIDAYS = { "01-01": "Capodanno", "01-06": "Epifania", "04-25": "Festa della Liberazione", "05-01": "Festa del Lavoro",
+    "06-02": "Festa della Repubblica", "08-15": "Ferragosto", "11-01": "Ognissanti", "12-08": "Immacolata", "12-25": "Natale", "12-26": "Santo Stefano" };
+
+  function normalizeRules(r) {
+    const o = Number(r && r.oreGiorno);
+    return {
+      oreGiorno: o > 0 && o <= 24 ? o : DEFAULT_RULES.oreGiorno,
+      sabato: !!(r && r.sabato),
+      patrono: r && /^\d\d-\d\d$/.test(r.patrono || "") ? r.patrono : "",
+    };
+  }
+  /** Domenica di Pasqua (calendario gregoriano): [mese, giorno]. */
+  function easter(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    return [Math.floor((h + l - 7 * m + 114) / 31), ((h + l - 7 * m + 114) % 31) + 1];
+  }
+  /** Nome della festa nazionale (o del patrono) in quella data "YYYY-MM-DD", altrimenti null. */
+  function holidayName(date, patrono) {
+    const y = Number(date.slice(0, 4)), md = date.slice(5, 10);
+    if (FIXED_HOLIDAYS[md]) return FIXED_HOLIDAYS[md];
+    const [em, ed] = easter(y);
+    const pm = new Date(Date.UTC(y, em - 1, ed + 1));
+    if (`${String(pm.getUTCMonth() + 1).padStart(2, "0")}-${String(pm.getUTCDate()).padStart(2, "0")}` === md) return "Lunedì dell'Angelo";
+    if (patrono && md === patrono) return "Santo patrono";
+    return null;
+  }
+  const weekday = (date) => new Date(date + "T12:00:00Z").getUTCDay(); // 0 = domenica
+  /** "festivo" (domenica o festa), "riposo" (sabato se non si lavora) o "lavorativo". */
+  function dayKind(date, rules) {
+    const r = normalizeRules(rules);
+    const wd = weekday(date);
+    if (wd === 0 || holidayName(date, r.patrono)) return "festivo";
+    if (wd === 6 && !r.sabato) return "riposo";
+    return "lavorativo";
+  }
+  /** Minuti notturni (22:00-06:00) di un turno che inizia alle "HH:MM" e dura "minutes". */
+  function nightMinutes(start, minutes) {
+    if (!/^\d\d:\d\d$/.test(start || "") || !(minutes > 0)) return 0;
+    let t = Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5)), n = 0;
+    for (let i = 0; i < minutes; i++, t++) {
+      const m = t % 1440;
+      if (m >= NIGHT_FROM || m < NIGHT_TO) n++;
+    }
+    return n;
+  }
+  /**
+   * Ore di ogni dipendente, giorno per giorno, nel mese: { cf -> { name, days: { "YYYY-MM-DD": {tot, ord, str, fest, nott} } } }.
+   * Il turno conta nel giorno in cui inizia. Giorno lavorativo: ordinarie fino a oreGiorno, poi straordinario;
+   * sabato di riposo: tutto straordinario; domenica e festivi: tutto "festive". Le notturne sono "di cui".
+   */
+  function hoursByDay(shifts, month, rules) {
+    const r = normalizeRules(rules);
+    const out = new Map();
+    for (const s of shifts) {
+      if (!s.date.startsWith(month) || s.minutes == null) continue;
+      if (!out.has(s.cf)) out.set(s.cf, { name: s.name, days: {} });
+      const d = (out.get(s.cf).days[s.date] ||= { tot: 0, ord: 0, str: 0, fest: 0, nott: 0 });
+      d.tot += s.minutes;
+      d.nott += nightMinutes(s.in, s.minutes);
+    }
+    const ordMax = Math.round(r.oreGiorno * 60);
+    for (const p of out.values()) {
+      for (const [date, d] of Object.entries(p.days)) {
+        const kind = dayKind(date, r);
+        if (kind === "festivo") d.fest = d.tot;
+        else if (kind === "riposo") d.str = d.tot;
+        else { d.ord = Math.min(d.tot, ordMax); d.str = d.tot - d.ord; }
+      }
+    }
+    return out;
+  }
+
   /** Riepilogo per il consulente del lavoro, per dipendente, nel mese indicato. */
-  function monthlySummary(shifts, leaves, month) {
+  function monthlySummary(shifts, leaves, month, rules) {
     const rows = new Map();
     const row = (cf, name) => {
-      if (!rows.has(cf)) rows.set(cf, { cf, name: name || cf, days: new Set(), minutes: 0, shifts: 0, anomalies: 0, ferie: 0, malattia: 0, sindacale: 0 });
+      if (!rows.has(cf)) rows.set(cf, { cf, name: name || cf, days: new Set(), minutes: 0, shifts: 0, anomalies: 0, ferie: 0, malattia: 0, sindacale: 0, ord: 0, str: 0, fest: 0, nott: 0 });
       return rows.get(cf);
     };
     for (const s of shifts) {
@@ -3189,6 +3279,10 @@ var qrcode = function() {
         r.shifts++;
         r.days.add(s.date);
       }
+    }
+    for (const [cf, p] of hoursByDay(shifts, month, rules)) {
+      const r = row(cf, p.name);
+      for (const d of Object.values(p.days)) { r.ord += d.ord; r.str += d.str; r.fest += d.fest; r.nott += d.nott; }
     }
     for (const l of leaves) {
       if (!l.valid) continue;
@@ -3315,6 +3409,130 @@ var qrcode = function() {
     return "﻿" + [header, ...rows].map((r) => r.map(cell).join(";")).join("\r\n");
   }
 
+  // ------------------------------------------------------ file Excel (.xlsx) per il consulente del lavoro
+  const hoursNum = (min) => (min ? Math.round((min / 60) * 100) / 100 : 0);
+  const LEAVE_ROWS = [["FERIE", "Ferie (giorni)"], ["MALATTIA", "Malattia (giorni)"], ["PERMESSO_SINDACALE_LEGGE_300_70", "Permessi sindacali (giorni)"]];
+
+  /**
+   * I fogli del file per il consulente: Riepilogo, Foglio presenze (giorno per giorno), Timbrature, Note.
+   * leaves: solo le assenze da contare (il chiamante toglie quelle rifiutate).
+   */
+  function consultantSheets({ companyName, month, shifts, leaves, rules }) {
+    const r = normalizeRules(rules);
+    const [y, mo] = month.split("-").map(Number);
+    const nDays = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+    const dates = Array.from({ length: nDays }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
+    const summary = monthlySummary(shifts, leaves, month, r);
+    const byDay = hoursByDay(shifts, month, r);
+    const leaveOn = (cf, type, date) => leaves.some((l) => l.valid && l.cf === cf && l.type === type && l.startDate <= date && l.endDate >= date);
+    const fmt = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
+    const riepilogo = [
+      ["Cognome e nome", "Codice fiscale", "Giorni lavorati", "Ore ordinarie", "Ore straordinarie", "Ore festive", "di cui notturne", "Ore totali",
+        "Ferie (gg)", "Malattia (gg)", "Permessi sindacali (gg)", "Turni da controllare"],
+      ...summary.map((s) => [s.name, s.cf, s.days, hoursNum(s.ord), hoursNum(s.str), hoursNum(s.fest), hoursNum(s.nott), hoursNum(s.minutes),
+        s.ferie, s.malattia, s.sindacale, s.anomalies]),
+    ];
+    const WD = ["D", "L", "M", "M", "G", "V", "S"];
+    const foglio = [
+      ["Cognome e nome", "Codice fiscale", "Voce", ...dates.map((d) => Number(d.slice(8))), "Totale"],
+      ["", "", "", ...dates.map((d) => (dayKind(d, r) === "festivo" ? "F" : WD[weekday(d)])), ""],
+    ];
+    for (const s of summary) {
+      const days = (byDay.get(s.cf) || { days: {} }).days;
+      const line = (label, pick) => {
+        const vals = dates.map((d) => pick(d));
+        foglio.push([s.name, s.cf, label, ...vals.map((v) => (v ? v : null)), Math.round(vals.reduce((a, b) => a + (b || 0), 0) * 100) / 100]);
+      };
+      line("Ore ordinarie", (d) => hoursNum(days[d] && days[d].ord));
+      line("Ore straordinarie", (d) => hoursNum(days[d] && days[d].str));
+      line("Ore festive", (d) => hoursNum(days[d] && days[d].fest));
+      for (const [type, label] of LEAVE_ROWS) line(label, (d) => (leaveOn(s.cf, type, d) ? 1 : 0));
+    }
+    const timbrature = [
+      ["Data", "Cognome e nome", "Codice fiscale", "Entrata", "Uscita", "Ore", "Tipo di giorno", "Luogo", "Mansione", "Note"],
+      ...shifts.filter((s) => s.date.startsWith(month)).map((s) => [fmt(s.date), s.name, s.cf, s.in, s.out, s.minutes == null ? null : hoursNum(s.minutes),
+        dayKind(s.date, r) === "festivo" ? holidayName(s.date, r.patrono) || "Domenica" : dayKind(s.date, r) === "riposo" ? "Sabato (riposo)" : "Lavorativo",
+        s.place || "", s.task || "", s.anomaly || ""]),
+    ];
+    const note = [
+      ["Cartellino - presenze per il consulente del lavoro"],
+      ["Azienda", companyName || ""],
+      ["Mese", `${String(mo).padStart(2, "0")}/${y}`],
+      ["Creato il", new Date().toLocaleDateString("it-IT")],
+      ["Ore ordinarie al giorno", r.oreGiorno],
+      ["Si lavora il sabato", r.sabato ? "sì" : "no (ore del sabato = straordinario)"],
+      ["Santo patrono", r.patrono ? `${r.patrono.slice(3)}/${r.patrono.slice(0, 2)}` : "non indicato"],
+      ["Come sono calcolate", "Ore in decimali (7,5 = 7 ore e 30 minuti), solo turni completi con firma digitale valida. Domeniche e festivi = ore festive. Notturne = ore tra le 22 e le 6 (già comprese nelle altre colonne)."],
+      ["Da verificare", "Le regole del contratto collettivo (CCNL) le applica il consulente: questo file riporta le ore registrate."],
+    ];
+    return [
+      { name: "Riepilogo", rows: riepilogo, widths: [26, 19, 10, 10, 12, 10, 10, 10, 9, 10, 12, 12] },
+      { name: "Foglio presenze", rows: foglio, widths: [24, 19, 24, ...dates.map(() => 5), 9] },
+      { name: "Timbrature", rows: timbrature, widths: [11, 24, 19, 8, 8, 7, 18, 20, 18, 40] },
+      { name: "Note", rows: note, widths: [26, 110], plain: true },
+    ];
+  }
+
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(bytes) {
+    let c = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  /** ZIP senza compressione (basta per un file Excel piccolo). files: [{name, data: Uint8Array}]. */
+  function zipStore(files) {
+    const enc = new TextEncoder();
+    const parts = [], central = [];
+    let offset = 0;
+    const u16 = (v) => [v & 0xff, (v >>> 8) & 0xff];
+    const u32 = (v) => [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff];
+    for (const f of files) {
+      const name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+      const local = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(size), ...u32(size), ...u16(name.length), ...u16(0), ...name]);
+      parts.push(local, f.data);
+      central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(size), ...u32(size),
+        ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset), ...name]));
+      offset += local.length + size;
+    }
+    const cdSize = central.reduce((s, c) => s + c.length, 0);
+    const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(offset), ...u16(0)]);
+    const all = [...parts, ...central, end];
+    const out = new Uint8Array(all.reduce((s, p) => s + p.length, 0));
+    let p = 0;
+    for (const a of all) { out.set(a, p); p += a.length; }
+    return out;
+  }
+  const xmlEsc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
+  const colName = (i) => { let s = ""; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + ((i - 1) % 26)) + s; return s; };
+  /** File Excel .xlsx (Uint8Array) dai fogli [{name, rows, widths, plain}]: prima riga in grassetto e bloccata. */
+  function buildXlsx(sheets) {
+    const enc = new TextEncoder();
+    const sheetXml = (sh) => {
+      const cols = sh.widths ? `<cols>${sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols>` : "";
+      const rows = sh.rows.map((row, ri) => `<row r="${ri + 1}">${row.map((v, ci) => {
+        if (v == null || v === "") return "";
+        const ref = `${colName(ci)}${ri + 1}`, st = (ri === 0 || (sh.plain && ci === 0)) ? ` s="1"` : "";
+        return typeof v === "number" ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+      }).join("")}</row>`).join("");
+      const pane = sh.plain ? "" : `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`;
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${pane}${cols}<sheetData>${rows}</sheetData></worksheet>`;
+    };
+    const files = [
+      ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`],
+      ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+      ["xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s, i) => `<sheet name="${xmlEsc(s.name.slice(0, 31))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`],
+      ["xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+      ["xl/styles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>`],
+      ...sheets.map((s, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s)]),
+    ];
+    return zipStore(files.map(([name, text]) => ({ name, data: enc.encode(text) })));
+  }
+
   return {
     REPORT_FORMAT,
     REPORT_ALG,
@@ -3341,6 +3559,15 @@ var qrcode = function() {
     processReports,
     buildShifts,
     monthlySummary,
+    DEFAULT_RULES,
+    normalizeRules,
+    holidayName,
+    dayKind,
+    nightMinutes,
+    hoursByDay,
+    consultantSheets,
+    buildXlsx,
+    crc32,
     leaveDaysInMonth,
     formatMinutes,
     formatHoursDecimal,
@@ -3359,7 +3586,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611151816"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611151858"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3889,7 +4116,7 @@ var qrcode = function() {
     state.shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
     const m = state.month, d = state.data;
     const shifts = state.shifts.filter((s) => s.date.startsWith(m));
-    const summary = L.monthlySummary(state.shifts, d.leaves, m);
+    const summary = L.monthlySummary(state.shifts, countedLeaves(), m, rules());
     const leaves = d.leaves.filter((l) => L.leaveDaysInMonth(l.startDate, l.endDate, m) > 0);
     const totalMin = summary.reduce((s, r) => s + r.minutes, 0);
     const pe = people();
@@ -3912,9 +4139,10 @@ var qrcode = function() {
     ].map(([n, l], i) => `<div class="stat"><div class="n ${i === 3 && n ? "bad" : ""}">${esc(n)}</div><div class="l">${esc(l)}</div></div>`).join("");
 
     table($("tSummary"),
-      [{ t: "Dipendente" }, { t: "Codice Fiscale" }, { t: "Giorni lavorati", num: 1 }, { t: "Ore (h:mm)", num: 1 }, { t: "Ore (decimali)", num: 1 },
-       { t: "Ferie (gg)", num: 1 }, { t: "Malattia (gg)", num: 1 }, { t: "Perm. sindacali (gg)", num: 1 }, { t: "Da controllare", num: 1 }],
-      summary.map((r) => ({ cls: r.anomalies ? "anom" : "", cells: [`<b>${esc(r.name)}</b>`, esc(r.cf), r.days, L.formatMinutes(r.minutes), L.formatHoursDecimal(r.minutes),
+      [{ t: "Dipendente" }, { t: "Codice Fiscale" }, { t: "Giorni lavorati", num: 1 }, { t: "Ore totali", num: 1 }, { t: "Ordinarie", num: 1 }, { t: "Straordinario", num: 1 },
+       { t: "Festive", num: 1 }, { t: "di cui notturne", num: 1 }, { t: "Ferie (gg)", num: 1 }, { t: "Malattia (gg)", num: 1 }, { t: "Perm. sindacali (gg)", num: 1 }, { t: "Da controllare", num: 1 }],
+      summary.map((r) => ({ cls: r.anomalies ? "anom" : "", cells: [`<b>${esc(r.name)}</b>`, esc(r.cf), r.days, L.formatMinutes(r.minutes), L.formatMinutes(r.ord),
+        r.str ? `<b>${L.formatMinutes(r.str)}</b>` : "", r.fest ? L.formatMinutes(r.fest) : "", r.nott ? L.formatMinutes(r.nott) : "",
         r.ferie || "", r.malattia || "", r.sindacale || "", r.anomalies ? `<span class="pill warn">${r.anomalies}</span>` : ""] })),
       "Nessun dato in questo mese.");
 
@@ -4220,7 +4448,7 @@ var qrcode = function() {
         format: "cartellino-backup", v: 1, savedAt: new Date().toISOString(),
         company: { name: state.company.name, code: state.company.code, color: state.company.color, publicKeyHex: state.company.publicKeyHex,
           soloQr: !!state.company.soloQr, gps: state.company.gps || null },
-        places: loadPlaces(), decisions: decisions(), people: people(), reports,
+        places: loadPlaces(), decisions: decisions(), people: people(), orario: loadJson("cartellino.orario"), reports,
       };
       const day = new Date().toISOString().slice(0, 10);
       download(`cartellino-copia-${state.company.code}-${day}.json`, JSON.stringify(backup), "application/json");
@@ -4247,6 +4475,7 @@ var qrcode = function() {
       const pe = people();
       for (const [cf, v] of Object.entries(b.people || {})) pe[cf] = { ...v, ...(pe[cf] || {}) };
       saveJson(PEOPLE_STORE, pe);
+      if (b.orario && !Object.keys(loadJson("cartellino.orario")).length) { saveJson("cartellino.orario", b.orario); fillRules(); }
       if (b.company.soloQr) state.company.soloQr = true;
       if (b.company.gps && !state.company.gps) state.company.gps = b.company.gps;
       save(state.company);
@@ -4265,7 +4494,7 @@ var qrcode = function() {
   $("pdfBtn").onclick = () => {
     if (!state.data) return;
     const m = state.month, d = state.data, c = state.company;
-    const rows = L.monthlySummary(state.shifts, d.leaves, m);
+    const rows = L.monthlySummary(state.shifts, countedLeaves(), m, rules());
     const tot = rows.reduce((s, r) => s + r.minutes, 0);
     const dec = decisions();
     const leaves = d.leaves.filter((l) => l.valid && L.leaveDaysInMonth(l.startDate, l.endDate, m) > 0);
@@ -4276,12 +4505,12 @@ var qrcode = function() {
 th{background:#f1f5f9}td.n{text-align:right}.tot td{font-weight:800;background:#f8fafc}.foot{margin-top:26px;font-size:10px;color:#64748b;display:flex;gap:8px;align-items:center}
 .foot img{width:22px;height:22px}@media print{body{margin:10mm}}</style></head><body>
 <h1>${esc(c.name)}</h1><div class="sub">Presenze di <b>${esc(monthLabel(m))}</b> · ${rows.length} dipendenti · ${L.formatMinutes(tot)} ore lavorate · creato il ${esc(new Date().toLocaleDateString("it-IT"))}</div>
-<h2>Riepilogo per dipendente</h2><table><tr><th>Dipendente</th><th>Codice Fiscale</th><th>Giorni</th><th>Ore (h:mm)</th><th>Ore (dec.)</th><th>Ferie</th><th>Malattia</th><th>Perm. sind.</th><th>Da controllare</th></tr>
-${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.cf)}</td><td class="n">${r.days}</td><td class="n">${L.formatMinutes(r.minutes)}</td><td class="n">${L.formatHoursDecimal(r.minutes)}</td><td class="n">${r.ferie || ""}</td><td class="n">${r.malattia || ""}</td><td class="n">${r.sindacale || ""}</td><td class="n">${r.anomalies || ""}</td></tr>`).join("")}
-<tr class="tot"><td colspan="3">Totale</td><td class="n">${L.formatMinutes(tot)}</td><td class="n">${L.formatHoursDecimal(tot)}</td><td colspan="4"></td></tr></table>
+<h2>Riepilogo per dipendente</h2><table><tr><th>Dipendente</th><th>Codice Fiscale</th><th>Giorni</th><th>Ore totali</th><th>Ordinarie</th><th>Straord.</th><th>Festive</th><th>Notturne</th><th>Ferie</th><th>Malattia</th><th>Perm. sind.</th><th>Da controllare</th></tr>
+${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.cf)}</td><td class="n">${r.days}</td><td class="n">${L.formatMinutes(r.minutes)}</td><td class="n">${L.formatMinutes(r.ord)}</td><td class="n">${r.str ? L.formatMinutes(r.str) : ""}</td><td class="n">${r.fest ? L.formatMinutes(r.fest) : ""}</td><td class="n">${r.nott ? L.formatMinutes(r.nott) : ""}</td><td class="n">${r.ferie || ""}</td><td class="n">${r.malattia || ""}</td><td class="n">${r.sindacale || ""}</td><td class="n">${r.anomalies || ""}</td></tr>`).join("")}
+<tr class="tot"><td colspan="3">Totale</td><td class="n">${L.formatMinutes(tot)}</td><td class="n">${L.formatMinutes(rows.reduce((s, r) => s + r.ord, 0))}</td><td class="n">${L.formatMinutes(rows.reduce((s, r) => s + r.str, 0))}</td><td class="n">${L.formatMinutes(rows.reduce((s, r) => s + r.fest, 0))}</td><td colspan="5"></td></tr></table>
 <h2>Assenze del mese</h2>${leaves.length ? `<table><tr><th>Dipendente</th><th>Tipo</th><th>Dal</th><th>Al</th><th>Giorni nel mese</th><th>Decisione</th></tr>
 ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] || l.type)}</td><td>${fmtDate(l.startDate)}</td><td>${fmtDate(l.endDate)}</td><td class="n">${L.leaveDaysInMonth(l.startDate, l.endDate, m)}</td><td>${dec[l.id] ? (dec[l.id].esito === "APPROVATA" ? "Approvata" : "Rifiutata") : "In attesa"}</td></tr>`).join("")}</table>` : "<p>Nessuna assenza.</p>"}
-<p style="font-size:11px;color:#475569;margin-top:14px">Ore calcolate su turni completi (ENTRATA + USCITA) con firma digitale valida. Le note sulla malattia non sono riportate (dati sanitari).</p>
+<p style="font-size:11px;color:#475569;margin-top:14px">Ore (h:mm) calcolate su turni completi (ENTRATA + USCITA) con firma digitale valida. Ordinarie fino a ${esc(String(rules().oreGiorno).replace(".", ","))} ore al giorno, poi straordinario; ${rules().sabato ? "" : "sabato = straordinario; "}domeniche e feste = festive; notturne (22-6) già comprese. Le assenze rifiutate non contano. Le note sulla malattia non sono riportate (dati sanitari).</p>
 <div class="foot"><img src="${logo}" alt=""><span>Cartellino · realizzato da Associazione Digital Valut · C.F. 90036980846</span></div>
 <script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
     const w = window.open("", "_blank");
@@ -4299,15 +4528,74 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     a.click();
     a.remove();
   }
-  $("csvSummaryBtn").onclick = () => { if (!state.data) return;
-    const rows = L.monthlySummary(state.shifts, state.data.leaves, state.month).map((r) =>
-      [r.name, r.cf, r.days, L.formatMinutes(r.minutes), L.formatHoursDecimal(r.minutes), r.ferie, r.malattia, r.sindacale, r.anomalies]);
-    download(`riepilogo-${state.month}.csv`, L.toCSV(["Dipendente", "Codice Fiscale", "Giorni lavorati", "Ore (h:mm)", "Ore (decimali)", "Ferie (gg)", "Malattia (gg)", "Permessi sindacali (gg)", "Turni da controllare"], rows), "text/csv");
-  };
-  $("csvDetailBtn").onclick = () => { if (!state.data) return;
-    const rows = state.shifts.filter((s) => s.date.startsWith(state.month)).map((s) =>
-      [fmtDate(s.date), s.name, s.cf, s.in, s.out, L.formatHoursDecimal(s.minutes), s.task, s.anomaly || ""]);
-    download(`presenze-${state.month}.csv`, L.toCSV(["Data", "Dipendente", "Codice Fiscale", "Entrata", "Uscita", "Ore (decimali)", "Mansione", "Note"], rows), "text/csv");
+  // ---------------------------------------------------------- orario di lavoro e consulente (salvati su questo computer)
+  // (funzioni dichiarate: render() le può usare anche prima di arrivare qui)
+  function rules() { return L.normalizeRules(loadJson("cartellino.orario")); }
+  function consultantEmail() { return String(loadJson("cartellino.orario").email || "").trim(); }
+  /** Assenze da contare: valide e non rifiutate. */
+  function countedLeaves() { const dec = decisions(); return state.data.leaves.filter((l) => l.valid && !(dec[l.id] && dec[l.id].esito === "RIFIUTATA")); }
+  function fillRules() {
+    const r = rules();
+    $("ruleOre").value = String(r.oreGiorno);
+    $("ruleSabato").checked = r.sabato;
+    $("rulePatrono").value = r.patrono ? `${r.patrono.slice(3)}/${r.patrono.slice(0, 2)}` : "";
+    $("ruleEmail").value = consultantEmail();
+  }
+  function saveRules() {
+    const m = /^\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2})\s*$/.exec($("rulePatrono").value);
+    const patrono = m && +m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12 ? `${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
+    saveJson("cartellino.orario", { oreGiorno: Number(String($("ruleOre").value).replace(",", ".")), sabato: $("ruleSabato").checked, patrono, email: $("ruleEmail").value.trim() });
+    fillRules();
+    if (state.data) render();
+  }
+  for (const id of ["ruleOre", "ruleSabato", "rulePatrono", "ruleEmail"]) $(id).onchange = saveRules;
+  fillRules();
+
+  // ---------------------------------------------------------- file Excel per il consulente e invio
+  const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  function consultantFile() {
+    const c = state.company || {};
+    const slug = String(c.name || "azienda").normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "azienda";
+    const bytes = L.buildXlsx(L.consultantSheets({ companyName: c.name, month: state.month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }));
+    return { name: `presenze-${slug}-${state.month}.xlsx`, bytes };
+  }
+  function downloadBytes(name, bytes, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([bytes], { type }));
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  $("xlsxBtn").onclick = () => { if (!state.data) return; const f = consultantFile(); downloadBytes(f.name, f.bytes, XLSX_TYPE); };
+  $("sendBtn").onclick = async () => {
+    if (!state.data) return;
+    const f = consultantFile(), c = state.company || {};
+    const subject = `Presenze ${monthLabel(state.month)} - ${c.name || ""}`;
+    const body = `Buongiorno,\nin allegato il file delle presenze di ${monthLabel(state.month)} (ore ordinarie, straordinari, festivi, ferie, malattia e permessi).\n\nCordiali saluti\n${c.name || ""}`;
+    // 1) se il computer lo permette: condivisione diretta del file (Posta, Outlook, WhatsApp…)
+    try {
+      const file = new File([f.bytes], f.name, { type: XLSX_TYPE });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: subject, text: body });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === "AbortError") return; // finestra chiusa dall'utente
+    }
+    // 2) altrimenti: scarico il file e apro l'email già scritta (il file si allega dalla cartella Download)
+    downloadBytes(f.name, f.bytes, XLSX_TYPE);
+    const email = consultantEmail();
+    if (!email) {
+      $("rulesBox").open = true;
+      $("ruleEmail").focus();
+      alert(`File scaricato: ${f.name}\n\nScrivi l'email del consulente in "Orario di lavoro e consulente": la prossima volta l'email si prepara da sola.`);
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${body}\n\n(Allegato: ${f.name})`)}`;
+    a.click();
+    alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
   };
 
   show();
