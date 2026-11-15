@@ -93,6 +93,25 @@
   .c-L { background: #bbf7d0; } .c-F { background: #bfdbfe; } .c-M { background: #fecaca; } .c-P { background: #e9d5ff; } .c-A { background: #fde68a; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink2); margin: 8px 0; }
   .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; background: var(--c); }
+  #nav { position: sticky; top: 0; z-index: 5; background: #fff; border-bottom: 1px solid var(--line); display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; padding: 8px 10px; }
+  #nav button { border: none; background: none; border-radius: 10px; padding: 10px 14px; font-size: 15px; color: var(--ink2); }
+  #nav button.active { background: var(--brand); color: #fff; }
+  #nav .badge { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 12px; margin-left: 4px; }
+  /* una pagina alla volta */
+  body[data-view] #sheetCard, body[data-view] #places, body[data-view] #report, body[data-view] #results, body[data-view] #resetBox, body[data-view] #emptyHint { display: none !important; }
+  body[data-view="qr"] #sheetCard, body[data-view="qr"] #places, body[data-view="qr"] #resetBox { display: block !important; }
+  body[data-view="report"] #report { display: block !important; }
+  body.hasdata[data-view="oggi"] #results, body.hasdata[data-view="dipendenti"] #results, body.hasdata[data-view="mese"] #results { display: block !important; }
+  body:not(.hasdata)[data-view="oggi"] #emptyHint, body:not(.hasdata)[data-view="dipendenti"] #emptyHint, body:not(.hasdata)[data-view="mese"] #emptyHint { display: block !important; }
+  body[data-view="oggi"] #results .tabs, body[data-view="dipendenti"] #results .tabs, body[data-view="dipendenti"] #results .stats { display: none !important; }
+  body[data-view="oggi"] #results .panel { display: none !important; }
+  body[data-view="oggi"] #results .panel[data-panel="dash"] { display: block !important; }
+  body[data-view="dipendenti"] #results .panel { display: none !important; }
+  body[data-view="dipendenti"] #results .panel[data-panel="people"] { display: block !important; }
+  body[data-view="mese"] #results .panel[data-panel="dash"], body[data-view="mese"] #results .panel[data-panel="people"],
+  body[data-view="mese"] .tabs button[data-tab="dash"], body[data-view="mese"] .tabs button[data-tab="people"] { display: none !important; }
+  .outbox { border: 2px solid #86efac; background: #f0fdf4; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+  .outbox h3 { margin: 0 0 8px; font-size: 17px; }
   .madeby { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 28px; color: var(--ink2); font-size: 13px; }
   .madeby img { width: 34px; height: 34px; }
   .madeby b { color: var(--ink); }
@@ -112,6 +131,13 @@
   <h1>Cartellino · Area azienda</h1>
   <p>Funziona su questo computer, senza internet. I dati dei dipendenti non escono da qui.</p>
 </header>
+<nav id="nav" class="hidden noprint" aria-label="Menù">
+  <button data-view="oggi">🏠 Oggi<span class="badge hidden" id="badgeOggi"></span></button>
+  <button data-view="dipendenti">👷 Dipendenti</button>
+  <button data-view="mese">📅 Mese</button>
+  <button data-view="report">📥 Report</button>
+  <button data-view="qr">📍 QR e luoghi</button>
+</nav>
 <main>
   <section class="card hidden" id="errorBox" role="alert" style="border-color:#fca5a5;background:#fef2f2">
     <h2 style="color:var(--bad)">C'è un problema</h2>
@@ -149,12 +175,13 @@
     <div class="sheet" id="sheet">
       <p class="company" id="sheetCompany"></p>
       <p class="title">Timbra le presenze con il telefono</p>
+      <p style="font-size:22px;font-weight:700;margin:-8px 0 10px" id="sheetPlace"></p>
       <div id="qrBox"></div>
       <ol>
-        <li>Apri la <b>fotocamera</b> del telefono e inquadra il QR.</li>
+        <li>La prima volta: apri la <b>fotocamera</b> del telefono e inquadra il QR.</li>
         <li>Tocca il link che compare. <b>iPhone</b>: segui le istruzioni per metterla sulla schermata Home. <b>Android</b>: si apre subito.</li>
         <li>Registrati <b>una sola volta</b> con nome, cognome e codice fiscale.</li>
-        <li>Ogni giorno: <b>ENTRATA</b> quando arrivi, <b>USCITA</b> quando vai via.</li>
+        <li>Ogni volta che entri o esci (anche pausa e pranzo): apri Cartellino → <b>📷 INQUADRA IL QR</b>.</li>
         <li>A fine mese: <b>Invia report all'azienda</b> e mandalo all'ufficio.</li>
       </ol>
       <p class="note">Codice azienda: <b id="sheetCode"></b></p>
@@ -207,9 +234,7 @@
       Cartellino ("📷 Inquadra il QR del luogo") e timbra lì. I QR sono firmati con la tua password: nessuno li può falsificare.</p>
     <div id="placesLocked" class="note">Scrivi prima la tua password nel riquadro "I report dei dipendenti".</div>
     <div id="placesBox" class="hidden">
-      <label class="note" style="display:block;margin:6px 0"><input type="checkbox" id="optSoloQr">
-        <b>Si timbra SOLO con il QR del luogo</b> (le timbrature senza luogo vengono segnalate in rosso).
-        Dopo averlo cambiato <b>ristampa il foglio per i dipendenti</b>: vale per chi attiva l'app da quel momento.</label>
+      <p class="note" style="margin:6px 0">I dipendenti timbrano <b>solo</b> inquadrando uno di questi QR. Il primo QR inquadrato attiva anche l'app.</p>
       <label class="note" style="display:block;margin:6px 0"><input type="checkbox" id="optGps">
         <b>Controllo della posizione (GPS) nel momento della timbratura</b>: il telefono salva solo "sul posto" o "lontano", mai le coordinate.</label>
       <div id="gpsLegal" class="hidden" style="border:2px solid #f59e0b;background:#fffbeb;border-radius:12px;padding:12px;margin:8px 0">
@@ -233,6 +258,12 @@
       <p id="placeError" class="bad" style="min-height:1.2em"></p>
       <div class="tablewrap"><table id="tPlaces"></table></div>
     </div>
+  </section>
+
+  <section class="card noprint" id="emptyHint" style="text-align:center">
+    <h2>Ancora nessun report</h2>
+    <p class="muted">Quando i dipendenti ti mandano i report, importali da <b>📥 Report</b>: qui comparirà tutto.</p>
+    <button class="primary" data-goview="report">📥 Vai ai report</button>
   </section>
 
   <section class="card hidden" id="results">
@@ -3223,7 +3254,8 @@ var qrcode = function() {
   async function createCompanyMessage(companyKey, { tenantId, cf, kind, ...fields }) {
     if (!/^[A-Z0-9][A-Z0-9-]{1,18}[A-Z0-9]$/.test(String(tenantId || ""))) throw new Error("Codice azienda non valido.");
     if (!/^[A-Z0-9]{16}$/.test(String(cf || ""))) throw new Error("Codice fiscale non valido.");
-    if (!["ferie", "mansione", "uscito"].includes(kind)) throw new Error("Tipo di messaggio non valido.");
+    if (!["ferie", "mansione", "uscito", "pacchetto"].includes(kind)) throw new Error("Tipo di messaggio non valido.");
+    if (kind === "pacchetto" && (!Array.isArray(fields.items) || !fields.items.length)) throw new Error("Nessuna risposta da inviare.");
     return signCompanyData(companyKey, { v: 1, t: tenantId, cf, id: randomHex(8), at: new Date().toISOString(), k: kind, ...fields });
   }
 
@@ -3246,26 +3278,28 @@ var qrcode = function() {
    * QR firmato di un luogo di lavoro. Il telefono lo verifica (src/lib/place.ts, readPlace):
    * un dipendente non può fabbricare un QR con un'altra posizione.
    */
-  async function createPlace(companyKey, { tenantId, id, nome, lat, lng, r, gps, tipo }) {
+  async function createPlace(companyKey, { tenantId, id, nome, lat, lng, r, gps, tipo, azienda }) {
     const name = String(nome || "").replace(/\s+/g, " ").trim();
+    // Dati dell'azienda nel QR: la prima volta il QR del luogo ATTIVA anche l'app (un solo QR per tutto).
+    const az = azienda ? { az: String(azienda.name || "").slice(0, 80), col: String(azienda.color || "").replace(/^#/, ""), chiave: companyKey.publicKeyHex } : {};
     if (name.length < 2 || name.length > 60) throw new Error("Il nome del luogo deve avere da 2 a 60 caratteri.");
     if (tipo === "mezzo") {
       // camion, autobus, furgone: si muove, quindi niente coordinate e niente GPS
       const vid = id || randomHex(8);
-      const signedV = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", tipo: "mezzo", id: vid, nome: name });
+      const signedV = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", tipo: "mezzo", id: vid, nome: name, ...az });
       return { id: vid, nome: name, tipo: "mezzo", lat: 0, lng: 0, r: 0, gps: false, ...signedV };
     }
     if (lat == null && lng == null) {
       // sede senza coordinate: vale il QR, niente controllo posizione
       const sid = id || randomHex(8);
-      const signedS = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", id: sid, nome: name });
+      const signedS = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", id: sid, nome: name, ...az });
       return { id: sid, nome: name, tipo: "luogo", lat: null, lng: null, r: 0, gps: false, ...signedS };
     }
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("Coordinate non valide.");
     const radius = Number(r);
     if (!(radius >= 20 && radius <= 5000)) throw new Error("Raggio non valido (da 20 a 5000 metri).");
     const placeId = id || randomHex(8);
-    const signed = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", id: placeId, nome: name, lat, lng, r: radius, gps: !!gps });
+    const signed = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", id: placeId, nome: name, lat, lng, r: radius, gps: !!gps, ...az });
     return { id: placeId, nome: name, lat, lng, r: radius, gps: !!gps, ...signed };
   }
 
@@ -3325,7 +3359,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611150923"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611151724"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3426,6 +3460,19 @@ var qrcode = function() {
     } catch { /* senza internet nessun avviso */ }
   }
 
+  // ---------------------------------------------------------- menù: una pagina alla volta
+  function setView(v) {
+    document.body.dataset.view = v;
+    document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
+    if (v === "mese") {
+      const cur = document.querySelector(".tabs button.active");
+      if (!cur || cur.dataset.tab === "dash" || cur.dataset.tab === "people") document.querySelector('.tabs button[data-tab="summary"]').click();
+    }
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll("#nav button").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
+  document.addEventListener("click", (e) => { const g = e.target.closest("[data-goview]"); if (g) setView(g.dataset.goview); });
+
   // ---------------------------------------------------------- prima volta
   let color = COLORS[0];
   $("swatches").innerHTML = COLORS.map((c, i) => `<button type="button" class="swatch${i === 0 ? " sel" : ""}" data-c="${c}" style="background:#${c}" aria-label="Colore ${c}"></button>`).join("");
@@ -3452,12 +3499,14 @@ var qrcode = function() {
     try {
       const key = await L.deriveCompanyKey(code, pwd);
       state.company = { name, code, color, publicKeyHex: key.publicKeyHex, fingerprint: key.fingerprint, appUrl, soloQr: true };
+      savePlaces([]);
       state.key = key; // già sbloccato per questa sessione
       save(state.company);
       $("setupPwd").value = $("setupPwd2").value = "";
       show();
       checkLicense();
       unlocked();
+      setView("qr");
     } catch (e) {
       err(e.message || "Errore imprevisto");
     } finally {
@@ -3501,6 +3550,9 @@ var qrcode = function() {
     $("unlockBox").classList.add("hidden");
     $("dropBox").classList.remove("hidden");
     renderPlaces();
+    $("nav").classList.remove("hidden");
+    setView("oggi");
+    ensureSede().then(renderSheet);
     loadArchive().then(reopenFiles);
     refreshInboxState();
   }
@@ -3667,6 +3719,7 @@ var qrcode = function() {
   }
 
   async function recompute() {
+    document.body.classList.toggle("hasdata", !!state.contents.length);
     if (!state.contents.length) { $("results").classList.add("hidden"); return; }
     state.data = await L.processReports(state.contents);
     state.shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
@@ -3710,7 +3763,7 @@ var qrcode = function() {
     const ids = `data-id="${esc(l.id)}" data-cf="${esc(l.cf)}"`;
     if (d) {
       return `<span class="pill ${d.esito === "APPROVATA" ? "ok" : "bad"}">${d.esito === "APPROVATA" ? "✓ Approvata" : "✗ Rifiutata"}</span>
-        <button class="btn-small" data-act="resend" ${ids}>Rimanda</button>`;
+        ${d.sent ? `<button class="btn-small" data-act="resend" ${ids}>Rimanda</button>` : '<span class="pill warn">da inviare</span>'}`;
     }
     return `<button class="btn-ok" data-act="approve" ${ids}>✓ Approva</button> <button class="btn-no" data-act="reject" ${ids}>✗ Rifiuta</button>`;
   }
@@ -3723,6 +3776,7 @@ var qrcode = function() {
     const today = ymd(new Date());
     const thisMonth = today.slice(0, 7);
     const cfs = [...new Set([...d.names.keys(), ...d.attendances.map((a) => a.cf), ...d.leaves.map((l) => l.cf)])]
+      .filter((cf) => !(pe[cf] && pe[cf].nascosto))
       .sort((a, b) => (d.names.get(a) || a).localeCompare(d.names.get(b) || b));
     const nameOf = (cf) => d.names.get(cf) || cf;
     const summary = new Map(L.monthlySummary(state.shifts, d.leaves, m).map((r) => [r.cf, r]));
@@ -3730,8 +3784,9 @@ var qrcode = function() {
     // ---- Da fare
     const urgentLimit = ymd(new Date(Date.now() + 7 * 86400000));
     const isUrgent = (l) => l.startDate <= urgentLimit;
-    const pending = d.leaves.filter((l) => l.valid && !dec[l.id]).sort((a, b) => (isUrgent(b) - isUrgent(a)) || a.startDate.localeCompare(b.startDate));
-    const decided = d.leaves.filter((l) => l.valid && dec[l.id]).sort((a, b) => (dec[b.id].at || "").localeCompare(dec[a.id].at || "")).slice(0, 5);
+    const shown = (cf) => !(pe[cf] && pe[cf].nascosto); // "Tolto dall'elenco": fuori da tutto il Cruscotto
+    const pending = d.leaves.filter((l) => l.valid && shown(l.cf) && !dec[l.id]).sort((a, b) => (isUrgent(b) - isUrgent(a)) || a.startDate.localeCompare(b.startDate));
+    const decided = d.leaves.filter((l) => l.valid && shown(l.cf) && dec[l.id]).sort((a, b) => (dec[b.id].at || "").localeCompare(dec[a.id].at || "")).slice(0, 5);
     const monthStart = thisMonth + "-01";
     const noReport = cfs.filter((cf) => !(pe[cf] && pe[cf].uscito) && (!d.lastReport.get(cf) || ymd(new Date(d.lastReport.get(cf))) < monthStart));
     const todo = [];
@@ -3740,7 +3795,7 @@ var qrcode = function() {
         <span style="flex:1"></span><button class="btn-ok" data-act="approve" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✓ Approva</button>
         <button class="btn-no" data-act="reject" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✗ Rifiuta</button></li>`);
     }
-    for (const c of d.corrections.filter((x) => x.valid && x.tipo === "USCITA" && !dec[x.id])) {
+    for (const c of d.corrections.filter((x) => x.valid && shown(x.cf) && x.tipo === "USCITA" && !dec[x.id])) {
       todo.push(`<li><span class="pill warn">Uscita dimenticata</span> <b>${esc(nameOf(c.cf))}</b> dice di essere uscito il ${esc(fmtDate(L.romeDate(c.time)))} alle <b>${esc(L.romeTime(c.time))}</b>
         <span style="flex:1"></span><button class="btn-ok" data-act="corr-ok" data-id="${esc(c.id)}" data-cf="${esc(c.cf)}">✓ Accetta</button>
         <button class="btn-no" data-act="corr-no" data-id="${esc(c.id)}" data-cf="${esc(c.cf)}">✗ Rifiuta</button></li>`);
@@ -3752,7 +3807,16 @@ var qrcode = function() {
       const ok = dec[l.id].esito === "APPROVATA";
       todo.push(`<li class="done"><span class="pill ${ok ? "ok" : "bad"}">${ok ? "✓ Approvata" : "✗ Rifiutata"}</span> ${esc(nameOf(l.cf))} — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}</li>`);
     }
-    const todoHtml = `<div class="todo"><h3>📋 Da fare</h3>${todo.length ? `<ul>${todo.join("")}</ul>` : '<p class="ok" style="margin:0">✓ Tutto in ordine: niente da fare.</p>'}</div>`;
+    const ob = outbox();
+    const outCfs = Object.keys(ob).filter((cf) => (ob[cf] || []).length);
+    const outHtml = outCfs.length ? `<div class="outbox"><h3>📤 Risposte da inviare</h3><ul style="list-style:none;padding:0;margin:0">${outCfs.map((cf) =>
+      `<li style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0"><b>${esc(nameOf(cf))}</b><span class="note">${ob[cf].map((x) => esc(describe(x))).join(" · ")}</span>
+       <span style="flex:1"></span><button class="primary btn-small" data-act="send" data-cf="${esc(cf)}">📤 Invia ${ob[cf].length === 1 ? "la risposta" : `le ${ob[cf].length} risposte`}</button></li>`).join("")}</ul>
+       <p class="note" style="margin:6px 0 0">Un solo messaggio per dipendente: lo tocca e il suo telefono si aggiorna.</p></div>` : "";
+    const todoHtml = outHtml + `<div class="todo"><h3>📋 Da fare</h3>${todo.length ? `<ul>${todo.join("")}</ul>` : '<p class="ok" style="margin:0">✓ Tutto in ordine: niente da fare.</p>'}</div>`;
+    const nTodo = pending.length + outCfs.length;
+    $("badgeOggi").textContent = nTodo;
+    $("badgeOggi").classList.toggle("hidden", !nTodo);
 
     // ---- schede dipendenti
     const covers = (l, day) => l.valid && l.startDate <= day && l.endDate >= day && (!dec[l.id] || dec[l.id].esito === "APPROVATA");
@@ -3810,11 +3874,12 @@ var qrcode = function() {
         const ids = `data-cf="${esc(cf)}"`;
         const task = info.mansione || lastTask.get(cf) || "";
         const last = d.lastReport.get(cf);
-        return { cls: info.uscito ? "invalid" : "", cells: [
+        return { cls: info.uscito || info.nascosto ? "invalid" : "", cells: [
           `<b>${esc(d.names.get(cf) || cf)}</b>`, esc(cf), esc(task) + (info.mansione ? ` <span class="pill warn">cambiata</span>` : ""),
           last ? esc(fmtDateTime(last)) : "",
-          info.uscito ? `<span class="pill bad">Uscito il ${esc(new Date(info.uscito).toLocaleDateString("it-IT"))}</span>` : `<span class="pill ok">In servizio</span>`,
-          info.uscito ? "" : `<button class="btn-small" data-act="task" ${ids}>Cambia mansione</button> <button class="btn-small" data-act="left" ${ids}>Non lavora più qui</button>`,
+          info.nascosto ? `<span class="pill warn">Tolto dall'elenco</span>` : info.uscito ? `<span class="pill bad">Uscito il ${esc(new Date(info.uscito).toLocaleDateString("it-IT"))}</span>` : `<span class="pill ok">In servizio</span>`,
+          (info.uscito ? "" : `<button class="btn-small" data-act="task" ${ids}>Cambia mansione</button> <button class="btn-small" data-act="left" ${ids}>Non lavora più qui</button> `) +
+            (info.nascosto ? `<button class="btn-small" data-act="unhide" ${ids}>Rimetti nell'elenco</button>` : `<button class="btn-small" data-act="hide" ${ids}>Togli dall'elenco</button>`),
         ] };
       }),
       "Nessun dipendente: carica i report.");
@@ -3910,6 +3975,34 @@ var qrcode = function() {
   };
   $("sendWa").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent("Messaggio da " + state.company.name + " per Cartellino: " + sendCurrent), "_blank", "noopener");
 
+  // Risposte raccolte: si inviano tutte insieme, un solo messaggio per dipendente
+  const OUT_STORE = "cartellino.dainviare";
+  const outbox = () => loadJson(OUT_STORE);
+  function queueReply(cf, item) {
+    const o = outbox();
+    o[cf] = (o[cf] || []).filter((x) => !(item.k === "ferie" && x.k === "ferie" && x.richiesta === item.richiesta) && !(item.k === "mansione" && x.k === "mansione"));
+    o[cf].push(item);
+    saveJson(OUT_STORE, o);
+  }
+  function describe(item) {
+    if (item.k === "ferie") return (item.esito === "APPROVATA" ? "✓ " : "✗ ") + (item.etichetta || "richiesta");
+    if (item.k === "mansione") return "nuova mansione: " + item.mansione;
+    return "non lavora più qui";
+  }
+  async function sendQueued(cf) {
+    const items = (outbox()[cf] || []).map(({ etichetta, ...x }) => x);
+    if (!items.length) return;
+    const who = (state.data && state.data.names.get(cf)) || cf;
+    const link = await sendMessage("pacchetto", cf, { items }, `Risposte per ${who}`, `${items.length} ${items.length === 1 ? "risposta" : "risposte"} in un solo messaggio.`);
+    if (!link) return;
+    const o = outbox(); delete o[cf]; saveJson(OUT_STORE, o);
+    const d = decisions();
+    for (const it of items) if (it.k === "ferie" && d[it.richiesta]) d[it.richiesta].sent = true;
+    saveJson(DEC_STORE, d);
+    const pe = people(); pe[cf] = { ...(pe[cf] || {}), ultimoInvio: link }; saveJson(PEOPLE_STORE, pe);
+    safeRender();
+  }
+
   async function sendMessage(kind, cf, fields, title, text) {
     if (!state.key) { showError("Scrivi prima la tua password (riquadro \"I report dei dipendenti\")."); return null; }
     const signed = await L.createCompanyMessage(state.key, { tenantId: state.company.code, cf, kind, ...fields });
@@ -3942,27 +4035,71 @@ var qrcode = function() {
       if (act === "approve" || act === "reject") {
         const esito = act === "approve" ? "APPROVATA" : "RIFIUTATA";
         const nota = act === "reject" ? (prompt("Motivo del rifiuto (facoltativo, lo legge il dipendente):", "") || "").slice(0, 200) : "";
-        const link = await sendMessage("ferie", cf, { richiesta: id, esito, ...(nota ? { nota } : {}) },
-          esito === "APPROVATA" ? "✓ Richiesta approvata" : "✗ Richiesta rifiutata", `Risposta per ${who}.`);
-        if (link) { const d = decisions(); d[id] = { esito, at: new Date().toISOString(), link }; saveJson(DEC_STORE, d); safeRender(); }
+        const lv = state.data.leaves.find((x) => x.id === id);
+        const etichetta = lv ? `${LEAVE_LABEL[lv.type] || lv.type} dal ${fmtDate(lv.startDate)} al ${fmtDate(lv.endDate)}` : "richiesta";
+        queueReply(cf, { k: "ferie", richiesta: id, esito, ...(nota ? { nota } : {}), etichetta });
+        const d = decisions(); d[id] = { esito, at: new Date().toISOString(), sent: false }; saveJson(DEC_STORE, d);
+        safeRender();
       } else if (act === "resend") {
-        const d = decisions()[id];
-        if (d) showSend(d.esito === "APPROVATA" ? "✓ Richiesta approvata" : "✗ Richiesta rifiutata", `Risposta per ${who} (di nuovo).`, d.link);
+        const last = (people()[cf] || {}).ultimoInvio;
+        if (last) showSend("Ultime risposte inviate", `Di nuovo per ${who}.`, last);
       } else if (act === "task") {
         const nuova = (prompt(`Nuova mansione per ${who}:`, "") || "").replace(/\s+/g, " ").trim();
         if (!nuova) return;
         if (nuova.length < 2 || nuova.length > 60) { showError("La mansione deve avere da 2 a 60 caratteri."); return; }
-        const link = await sendMessage("mansione", cf, { mansione: nuova }, "Nuova mansione", `${who}: ${nuova}`);
-        if (link) { const p = people(); p[cf] = { ...(p[cf] || {}), mansione: nuova, mansioneAt: new Date().toISOString() }; saveJson(PEOPLE_STORE, p); safeRender(); }
+        queueReply(cf, { k: "mansione", mansione: nuova });
+        const p = people(); p[cf] = { ...(p[cf] || {}), mansione: nuova, mansioneAt: new Date().toISOString() }; saveJson(PEOPLE_STORE, p);
+        safeRender();
       } else if (act === "left") {
         if (!confirm(`${who} non lavora più in azienda? Il suo telefono non potrà più timbrare (potrà solo mandare l'ultimo report).`)) return;
-        const link = await sendMessage("uscito", cf, {}, "Rapporto di lavoro chiuso", `Messaggio per ${who}.`);
-        if (link) { const p = people(); p[cf] = { ...(p[cf] || {}), uscito: new Date().toISOString() }; saveJson(PEOPLE_STORE, p); safeRender(); }
+        queueReply(cf, { k: "uscito" });
+        const p = people(); p[cf] = { ...(p[cf] || {}), uscito: new Date().toISOString() }; saveJson(PEOPLE_STORE, p);
+        safeRender();
+      } else if (act === "hide" || act === "unhide") {
+        if (act === "hide" && !confirm(`Togliere ${who} dall'elenco? I suoi dati restano negli archivi e potrai rimetterlo quando vuoi.`)) return;
+        const p = people(); p[cf] = { ...(p[cf] || {}), nascosto: act === "hide" }; saveJson(PEOPLE_STORE, p);
+        safeRender();
+      } else if (act === "send") {
+        await sendQueued(cf);
       }
     } catch (err) {
       showError("Non riesco a preparare il messaggio: " + (err && err.message ? err.message : "errore imprevisto"));
     }
   });
+
+  // ---------------------------------------------------------- foglio per i dipendenti = QR della Sede
+  async function signedPlaceLink(p) {
+    const signed = await L.createPlace(state.key, { tenantId: state.company.code, id: p.id, nome: p.nome, lat: p.lat, lng: p.lng, r: p.r,
+      gps: !!state.company.gps && p.lat != null, tipo: p.tipo, azienda: state.company });
+    return L.placeLink(state.company.appUrl || appUrl, signed);
+  }
+  /** La prima volta crea da sola la "Sede" (QR senza coordinate): così il datore ha subito il suo QR. */
+  async function ensureSede() {
+    if (!state.key) return;
+    let list = loadPlaces();
+    if (!list.length) {
+      const b = new Uint8Array(8);
+      crypto.getRandomValues(b);
+      list = [{ id: L.bytesToHex(b), nome: "Sede", tipo: "luogo", lat: null, lng: null, r: 0 }];
+    }
+    let changed = false;
+    for (const p of list) {
+      if (!p.link || p.gpsAt !== String(!!state.company.gps)) { p.link = await signedPlaceLink(p); p.gpsAt = String(!!state.company.gps); changed = true; }
+    }
+    if (changed || !loadPlaces().length) savePlaces(list);
+    renderPlaces();
+  }
+  function renderSheet() {
+    const sede = loadPlaces()[0];
+    if (!sede || !sede.link) return;
+    $("activationLink").textContent = sede.link;
+    $("activationLink").href = sede.link;
+    const qr = qrcode(0, "M");
+    qr.addData(sede.link);
+    qr.make();
+    $("qrBox").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    $("sheetPlace").textContent = "📍 " + sede.nome;
+  }
 
   // ---------------------------------------------------------- luoghi di lavoro
   const PLACES_STORE = "cartellino.luoghi";
@@ -3975,7 +4112,6 @@ var qrcode = function() {
     $("places").classList.remove("hidden");
     $("placesLocked").classList.toggle("hidden", !!state.key);
     $("placesBox").classList.toggle("hidden", !state.key);
-    $("optSoloQr").checked = !!c.soloQr;
     $("optGps").checked = !!c.gps;
     $("gpsLegal").classList.add("hidden");
     $("gpsState").innerHTML = c.gps
@@ -3989,13 +4125,6 @@ var qrcode = function() {
       "Nessun luogo: aggiungi l'ufficio o il primo cantiere.");
   }
 
-  $("optSoloQr").onchange = () => {
-    state.company.soloQr = $("optSoloQr").checked;
-    save(state.company);
-    show();
-    renderPlaces();
-    if (state.data) safeRender();
-  };
   $("optGps").onchange = () => {
     if ($("optGps").checked) {
       $("optGps").checked = !!state.company.gps;
@@ -4004,7 +4133,7 @@ var qrcode = function() {
     } else {
       delete state.company.gps;
       save(state.company);
-      renderPlaces();
+      ensureSede().then(renderSheet);
     }
   };
   $("gpsConfirm").onclick = () => {
@@ -4012,7 +4141,7 @@ var qrcode = function() {
     $("placeError").textContent = "";
     state.company.gps = { at: new Date().toISOString(), dichiarazione: true };
     save(state.company);
-    renderPlaces();
+    ensureSede().then(renderSheet);
   };
   $("placeType").onchange = () => {
     const mezzo = $("placeType").value === "mezzo";
@@ -4038,12 +4167,11 @@ var qrcode = function() {
       : { id: L.bytesToHex(b), nome, tipo: "luogo", lat: coords.lat, lng: coords.lng, r: Number($("placeRadius").value) });
     savePlaces(list);
     $("placeName").value = $("placeCoords").value = "";
-    renderPlaces();
+    ensureSede().then(renderSheet);
   };
 
   async function printPlace(p) {
-    const signed = await L.createPlace(state.key, { tenantId: state.company.code, id: p.id, nome: p.nome, lat: p.lat, lng: p.lng, r: p.r, gps: !!state.company.gps, tipo: p.tipo });
-    const link = L.placeLink(state.company.appUrl || appUrl, signed);
+    const link = await signedPlaceLink(p);
     const qr = qrcode(0, "M");
     qr.addData(link);
     qr.make();
