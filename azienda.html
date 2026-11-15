@@ -214,7 +214,7 @@
         <div><label class="field" for="placeType">Tipo</label>
           <select id="placeType"><option value="luogo">📍 Luogo (ufficio, cantiere)</option><option value="mezzo">🚚 Mezzo (camion, autobus, furgone)</option></select></div>
         <div><label class="field" for="placeName">Nome</label><input type="text" id="placeName" placeholder="Es. Cantiere Via Roma" maxlength="60" style="max-width:240px"></div>
-        <div><label class="field" for="placeCoords">Coordinate (da Google Maps)</label><input type="text" id="placeCoords" placeholder="41.902800, 12.496400" style="max-width:220px"></div>
+        <div><label class="field" for="placeCoords">Coordinate (facoltative, da Google Maps)</label><input type="text" id="placeCoords" placeholder="41.902800, 12.496400" style="max-width:220px"></div>
         <div><label class="field" for="placeRadius">Raggio</label>
           <select id="placeRadius"><option value="100">100 m</option><option value="200" selected>200 m</option><option value="500">500 m</option><option value="1000">1 km</option></select></div>
         <button class="primary" id="placeAdd">Aggiungi luogo</button>
@@ -2868,6 +2868,7 @@ var qrcode = function() {
   async function processReports(contents) {
     const attendances = [];
     const leaves = [];
+    const corrections = [];
     const issues = [];
     const seen = new Map();
     const devices = new Map(); // cf -> Set(impronte)
@@ -2902,6 +2903,7 @@ var qrcode = function() {
       const all = [
         ...(Array.isArray(c.attendances) ? c.attendances : []).map((r) => ({ r, kind: "ATTENDANCE" })),
         ...(Array.isArray(c.leaveRequests) ? c.leaveRequests : []).map((r) => ({ r, kind: "LEAVE" })),
+        ...(Array.isArray(c.corrections) ? c.corrections : []).map((r) => ({ r, kind: "CORRECTION" })),
       ];
       for (const { r, kind } of all) {
         if (!r || typeof r !== "object" || !isText(r.id) || typeof r.payload !== "string") {
@@ -2923,6 +2925,8 @@ var qrcode = function() {
           if (p.cf !== c.cf) problems.push("Codice Fiscale diverso da quello del report");
           if (p.tenantId !== c.tenantId) problems.push("azienda diversa");
           if (kind === "LEAVE" && p.kind !== "LEAVE_REQUEST") problems.push("tipo di record errato");
+          if (kind === "CORRECTION" && (p.kind !== "CORRECTION" || (p.tipo !== "ANNULLA" && p.tipo !== "USCITA") || !isText(p.target) ||
+            (p.tipo === "USCITA" && !isIsoDateTime(p.time)))) problems.push("correzione non valida");
           if (kind === "ATTENDANCE" && (!isIsoDateTime(p.timestamp) || (p.type !== "ENTRATA" && p.type !== "USCITA"))) {
             problems.push("data/ora o tipo di timbratura non validi");
           }
@@ -2958,6 +2962,10 @@ var qrcode = function() {
         }
         const recName = p ? [p.lastName, p.firstName].filter(Boolean).join(" ") : "";
         const base = { id: r.id, cf: c.cf, name: recName || reportName || c.cf, valid, problems, devicePrint: fp };
+        if (kind === "CORRECTION") {
+          if (p) corrections.push({ ...base, tipo: p.tipo, target: String(p.target || ""), time: p.tipo === "USCITA" ? p.time : null, reason: String(p.reason || ""), createdAt: p.createdAt || "" });
+          continue;
+        }
         const datesOk = p && (kind === "ATTENDANCE" ? isIsoDateTime(p.timestamp) : isIsoDate(p.startDate) && isIsoDate(p.endDate));
         if (!datesOk) continue;
         if (kind === "ATTENDANCE") {
@@ -3020,7 +3028,7 @@ var qrcode = function() {
     }
     attendances.sort((x, y) => x.timestamp.localeCompare(y.timestamp));
     leaves.sort((x, y) => x.startDate.localeCompare(y.startDate));
-    return { attendances, leaves, issues, devices, names, lastReport };
+    return { attendances, leaves, corrections, issues, devices, names, lastReport };
   }
 
   /**
@@ -3037,6 +3045,32 @@ var qrcode = function() {
     FALSA: "posizione FALSA (app che inganna il GPS)",
   };
   const geoProblem = (g) => !!g && g !== "SUL_POSTO";
+
+  /**
+   * Applica le correzioni del dipendente PRIMA di calcolare i turni:
+   * - ANNULLA: la timbratura indicata (dello stesso dipendente) non conta più;
+   * - USCITA dimenticata: si aggiunge un'USCITA all'ora indicata, "da confermare" finché il datore non decide
+   *   (decisions[id].esito "ACCETTATA" la rende normale, "RIFIUTATA" la toglie).
+   */
+  function applyCorrections(attendances, corrections, decisions) {
+    const dec = decisions || {};
+    const valid = (corrections || []).filter((c) => c.valid);
+    const cancelled = new Set(valid.filter((c) => c.tipo === "ANNULLA").map((c) => c.cf + "|" + c.target));
+    const out = attendances.filter((a) => !cancelled.has(a.cf + "|" + a.id));
+    for (const c of valid) {
+      if (c.tipo !== "USCITA" || !isIsoDateTime(c.time)) continue;
+      const d = dec[c.id];
+      if (d && d.esito === "RIFIUTATA") continue;
+      const entry = attendances.find((a) => a.cf === c.cf && a.id === c.target);
+      out.push({
+        id: "corr:" + c.id, cf: c.cf, name: c.name, valid: true, problems: [], devicePrint: c.devicePrint,
+        type: "USCITA", timestamp: c.time, date: romeDate(c.time), time: romeTime(c.time),
+        task: entry ? entry.task : "", taskCustom: entry ? entry.taskCustom : false, place: entry ? entry.place : null, geo: null,
+        correction: c.id, pending: !(d && d.esito === "ACCETTATA"),
+      });
+    }
+    return out;
+  }
 
   function buildShifts(attendances) {
     const byCf = new Map();
@@ -3084,7 +3118,7 @@ var qrcode = function() {
       placeIds: [inRec && inRec.place && inRec.place.id, outRec && outRec.place && outRec.place.id].filter(Boolean),
       geoIn: inRec ? inRec.geo : null,
       geoOut: outRec ? outRec.geo : null,
-      anomaly: anomaly || (geoProblem(inRec && inRec.geo) ? `Entrata: ${GEO_TEXT[inRec.geo]}` : geoProblem(outRec && outRec.geo) ? `Uscita: ${GEO_TEXT[outRec.geo]}` : null),
+      anomaly: anomaly || (outRec && outRec.pending ? "USCITA indicata dopo dal dipendente: da confermare" : null) || (geoProblem(inRec && inRec.geo) ? `Entrata: ${GEO_TEXT[inRec.geo]}` : geoProblem(outRec && outRec.geo) ? `Uscita: ${GEO_TEXT[outRec.geo]}` : null),
     };
   }
 
@@ -3211,6 +3245,12 @@ var qrcode = function() {
       const signedV = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", tipo: "mezzo", id: vid, nome: name });
       return { id: vid, nome: name, tipo: "mezzo", lat: 0, lng: 0, r: 0, gps: false, ...signedV };
     }
+    if (lat == null && lng == null) {
+      // sede senza coordinate: vale il QR, niente controllo posizione
+      const sid = id || randomHex(8);
+      const signedS = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", id: sid, nome: name });
+      return { id: sid, nome: name, tipo: "luogo", lat: null, lng: null, r: 0, gps: false, ...signedS };
+    }
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("Coordinate non valide.");
     const radius = Number(r);
     if (!(radius >= 20 && radius <= 5000)) throw new Error("Raggio non valido (da 20 a 5000 metri).");
@@ -3242,6 +3282,7 @@ var qrcode = function() {
     validatePassword,
     signCompanyData,
     GEO_TEXT,
+    applyCorrections,
     createCompanyMessage,
     companyMessageLink,
     parseCoordinates,
@@ -3274,7 +3315,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611141735"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611150737"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3400,7 +3441,7 @@ var qrcode = function() {
     $("setupBtn").textContent = "Preparo…";
     try {
       const key = await L.deriveCompanyKey(code, pwd);
-      state.company = { name, code, color, publicKeyHex: key.publicKeyHex, fingerprint: key.fingerprint, appUrl };
+      state.company = { name, code, color, publicKeyHex: key.publicKeyHex, fingerprint: key.fingerprint, appUrl, soloQr: true };
       state.key = key; // già sbloccato per questa sessione
       save(state.company);
       $("setupPwd").value = $("setupPwd2").value = "";
@@ -3548,7 +3589,7 @@ var qrcode = function() {
   async function recompute() {
     if (!state.contents.length) { $("results").classList.add("hidden"); return; }
     state.data = await L.processReports(state.contents);
-    state.shifts = L.buildShifts(state.data.attendances);
+    state.shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
     const months = new Set();
     state.shifts.forEach((s) => months.add(s.date.slice(0, 7)));
     state.data.leaves.forEach((l) => { months.add(l.startDate.slice(0, 7)); months.add(l.endDate.slice(0, 7)); });
@@ -3616,6 +3657,11 @@ var qrcode = function() {
       todo.push(`<li><span class="pill warn">Da decidere</span> <b>${esc(nameOf(l.cf))}</b> — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}
         <span style="flex:1"></span><button class="btn-ok" data-act="approve" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✓ Approva</button>
         <button class="btn-no" data-act="reject" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✗ Rifiuta</button></li>`);
+    }
+    for (const c of d.corrections.filter((x) => x.valid && x.tipo === "USCITA" && !dec[x.id])) {
+      todo.push(`<li><span class="pill warn">Uscita dimenticata</span> <b>${esc(nameOf(c.cf))}</b> dice di essere uscito il ${esc(fmtDate(L.romeDate(c.time)))} alle <b>${esc(L.romeTime(c.time))}</b>
+        <span style="flex:1"></span><button class="btn-ok" data-act="corr-ok" data-id="${esc(c.id)}" data-cf="${esc(c.cf)}">✓ Accetta</button>
+        <button class="btn-no" data-act="corr-no" data-id="${esc(c.id)}" data-cf="${esc(c.cf)}">✗ Rifiuta</button></li>`);
     }
     for (const cf of noReport) todo.push(`<li><span class="pill warn">Report</span> <b>${esc(nameOf(cf))}</b> non ha ancora mandato il report di questo mese.</li>`);
     if (issues.length) todo.push(`<li><span class="pill bad">${issues.length}</span> ${issues.length === 1 ? "cosa da controllare" : "cose da controllare"} (timbrature lontane, dati modificati, registrazioni mancanti…)
@@ -3693,6 +3739,7 @@ var qrcode = function() {
   }
 
   function render() {
+    state.shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
     const m = state.month, d = state.data;
     const shifts = state.shifts.filter((s) => s.date.startsWith(m));
     const summary = L.monthlySummary(state.shifts, d.leaves, m);
@@ -3745,6 +3792,7 @@ var qrcode = function() {
             `<li><b>${esc(who(i.cf))}</b> — ${esc(i.text)}</li>`).join("")}</ul>
            <p class="note">Le registrazioni con firma NON valida sono state modificate dopo la timbratura: non vengono contate nelle ore.</p>`
         : `<p class="ok">✓ Nessuna anomalia: firme valide, nessuna registrazione mancante, orologi regolari, un telefono per dipendente.</p>`) +
+      (d.corrections.length ? `<h3 style="font-size:15px;margin-top:18px">Correzioni del dipendente</h3><ul>${d.corrections.map((c) => `<li><b>${esc(who(c.cf))}</b> — ${c.tipo === "ANNULLA" ? `ha annullato una timbratura (${esc(c.reason)})` : `uscita dimenticata indicata alle ${esc(L.romeTime(c.time))} del ${esc(fmtDate(L.romeDate(c.time)))}`}${c.valid ? "" : " — <span class=\"bad\">firma NON valida, ignorata</span>"}</li>`).join("")}</ul>` : "") +
       `<h3 style="font-size:15px;margin-top:18px">Report ricevuti</h3><ul>${reports}</ul>
        <p class="note">Cosa controlla: firme digitali, registrazioni cancellate (numerazione), orologio del telefono spostato,
        stesso telefono usato da più dipendenti, cambio di telefono. Senza GPS non può sapere <i>dove</i> si è timbrato.</p>`;
@@ -3802,6 +3850,13 @@ var qrcode = function() {
     try {
       const { act, id, cf } = b.dataset;
       const who = state.data.names.get(cf) || cf;
+      if (act === "corr-ok" || act === "corr-no") {
+        const dd = decisions();
+        dd[id] = { esito: act === "corr-ok" ? "ACCETTATA" : "RIFIUTATA", at: new Date().toISOString() };
+        saveJson(DEC_STORE, dd);
+        safeRender();
+        return;
+      }
       if (act === "approve" || act === "reject") {
         const esito = act === "approve" ? "APPROVATA" : "RIFIUTATA";
         const nota = act === "reject" ? (prompt("Motivo del rifiuto (facoltativo, lo legge il dipendente):", "") || "").slice(0, 200) : "";
@@ -3847,7 +3902,7 @@ var qrcode = function() {
     const list = loadPlaces();
     table($("tPlaces"),
       [{ t: "Luogo" }, { t: "Coordinate" }, { t: "Raggio", num: 1 }, { t: "" }],
-      list.map((p) => ({ cells: [`${p.tipo === "mezzo" ? "🚚" : "📍"} <b>${esc(p.nome)}</b>`, p.tipo === "mezzo" ? "mezzo in movimento" : `${p.lat}, ${p.lng}`, p.tipo === "mezzo" ? "—" : `${p.r} m`,
+      list.map((p) => ({ cells: [`${p.tipo === "mezzo" ? "🚚" : "📍"} <b>${esc(p.nome)}</b>`, p.tipo === "mezzo" ? "mezzo in movimento" : p.lat == null ? "senza posizione (solo QR)" : `${p.lat}, ${p.lng}`, p.tipo === "mezzo" || p.lat == null ? "—" : `${p.r} m`,
         `<button class="primary btn-small" data-place="print" data-pid="${esc(p.id)}">🖨️ Stampa QR</button> <button class="btn-small" data-place="del" data-pid="${esc(p.id)}">Elimina</button>`] })),
       "Nessun luogo: aggiungi l'ufficio o il primo cantiere.");
   }
@@ -3888,13 +3943,17 @@ var qrcode = function() {
     const coords = mezzo ? { lat: 0, lng: 0 } : L.parseCoordinates($("placeCoords").value);
     const err = (x) => { $("placeError").textContent = x; };
     if (nome.length < 2) return err("Scrivi il nome del luogo.");
-    if (!coords) return err("Coordinate non valide: incollale da Google Maps (es. 41.902800, 12.496400).");
+    const noCoords = !mezzo && !$("placeCoords").value.trim();
+    if (noCoords && state.company.gps) return err("Con il GPS acceso servono le coordinate del luogo (da Google Maps).");
+    if (!coords && !noCoords) return err("Coordinate non valide: incollale da Google Maps (es. 41.902800, 12.496400).");
     const list = loadPlaces();
     if (list.some((p) => p.nome.toLowerCase() === nome.toLowerCase())) return err("C'è già un luogo con questo nome.");
     err("");
     const b = new Uint8Array(8);
     crypto.getRandomValues(b);
-    list.push(mezzo ? { id: L.bytesToHex(b), nome, tipo: "mezzo", lat: 0, lng: 0, r: 0 } : { id: L.bytesToHex(b), nome, tipo: "luogo", lat: coords.lat, lng: coords.lng, r: Number($("placeRadius").value) });
+    list.push(mezzo ? { id: L.bytesToHex(b), nome, tipo: "mezzo", lat: 0, lng: 0, r: 0 }
+      : noCoords ? { id: L.bytesToHex(b), nome, tipo: "luogo", lat: null, lng: null, r: 0 }
+      : { id: L.bytesToHex(b), nome, tipo: "luogo", lat: coords.lat, lng: coords.lng, r: Number($("placeRadius").value) });
     savePlaces(list);
     $("placeName").value = $("placeCoords").value = "";
     renderPlaces();
