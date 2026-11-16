@@ -137,6 +137,7 @@
   <button data-view="mese">📅 Mese</button>
   <button data-view="report">📥 Report</button>
   <button data-view="qr">📍 QR e luoghi</button>
+  <span id="liveBadge" class="pill ok hidden" title="Le timbrature arrivano da Cartellino Server appena fatte" style="align-self:center;margin-left:6px">● IN DIRETTA</span>
 </nav>
 <main>
   <section class="card hidden" id="errorBox" role="alert" style="border-color:#fca5a5;background:#fef2f2">
@@ -245,6 +246,19 @@
         <div style="margin-top:8px"><button class="primary btn-small" id="gpsConfirm">Accendi il controllo posizione</button></div>
       </div>
       <p id="gpsState" class="note"></p>
+      <details id="officeBox" style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin:10px 0">
+        <summary style="cursor:pointer;font-weight:700">📨 Contatti dell'ufficio e invio automatico (Premium)</summary>
+        <p class="note">Il telefono del dipendente mostra a chi mandare il report. Con <b>Cartellino Server</b> (Premium) acceso su questo computer
+          le timbrature arrivano <b>da sole, appena fatte</b>: le vedi qui in diretta.</p>
+        <div class="row" style="align-items:flex-end">
+          <label class="note">Email dell'ufficio<br><input id="offEmail" type="email" placeholder="ufficio@azienda.it" style="width:220px"></label>
+          <label class="note">WhatsApp dell'ufficio<br><input id="offWa" placeholder="+39 333 1234567" style="width:170px"></label>
+          <label class="note">Indirizzo di Cartellino Server<br><input id="offServer" placeholder="https://…" style="width:300px"></label>
+          <button class="btn-small hidden" id="offFromServer">↙ Prendi dal server</button>
+          <button class="primary btn-small" id="offSave">Salva</button>
+        </div>
+        <p id="offState" class="note"></p>
+      </details>
       <div class="row" style="align-items:flex-end;margin-top:10px">
         <div><label class="field" for="placeType">Tipo</label>
           <select id="placeType"><option value="luogo">📍 Luogo (ufficio, cantiere)</option><option value="mezzo">🚚 Mezzo (camion, autobus, furgone)</option></select></div>
@@ -3375,7 +3389,7 @@ var qrcode = function() {
   async function createPlace(companyKey, { tenantId, id, nome, lat, lng, r, gps, tipo, azienda }) {
     const name = String(nome || "").replace(/\s+/g, " ").trim();
     // Dati dell'azienda nel QR: la prima volta il QR del luogo ATTIVA anche l'app (un solo QR per tutto).
-    const az = azienda ? { az: String(azienda.name || "").slice(0, 80), col: String(azienda.color || "").replace(/^#/, ""), chiave: companyKey.publicKeyHex } : {};
+    const az = azienda ? { az: String(azienda.name || "").slice(0, 80), col: String(azienda.color || "").replace(/^#/, ""), chiave: companyKey.publicKeyHex, ...officeFields(azienda.impostazioni) } : {};
     if (name.length < 2 || name.length > 60) throw new Error("Il nome del luogo deve avere da 2 a 60 caratteri.");
     if (tipo === "mezzo") {
       // camion, autobus, furgone: si muove, quindi niente coordinate e niente GPS
@@ -3395,6 +3409,30 @@ var qrcode = function() {
     const placeId = id || randomHex(8);
     const signed = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", id: placeId, nome: name, lat, lng, r: radius, gps: !!gps, ...az });
     return { id: placeId, nome: name, lat, lng, r: radius, gps: !!gps, ...signed };
+  }
+
+  /**
+   * Contatti dell'ufficio e server Premium dentro il QR (firmati): il telefono li legge quando inquadra il QR.
+   * ts = quando il datore li ha salvati (il telefono tiene i più recenti).
+   */
+  function officeFields(imp) {
+    if (!imp || typeof imp.ts !== "string") return {};
+    const out = { ts: imp.ts };
+    const email = String(imp.email || "").trim();
+    const wa = String(imp.whatsapp || "").replace(/[^\d+]/g, "");
+    const srv = String(imp.server || "").trim().replace(/\/+$/, "");
+    if (email) out.ue = email.slice(0, 120);
+    if (wa) out.uw = wa.slice(0, 16);
+    if (srv) out.srv = srv.slice(0, 200);
+    return out;
+  }
+  /** Controlla i contatti e l'indirizzo del server scritti dal datore: restituisce un errore in italiano oppure "". */
+  function checkOfficeSettings({ email, whatsapp, server }) {
+    if (email && !/^[^\s@<>]{1,64}@[^\s@<>]{1,100}\.[A-Za-z]{2,}$/.test(email)) return "Email dell'ufficio non valida.";
+    if (whatsapp && !/^\+?\d{6,16}$/.test(String(whatsapp).replace(/[\s.-]/g, ""))) return "Numero WhatsApp non valido (solo cifre, es. +393331234567).";
+    if (server && !/^https:\/\/[A-Za-z0-9.-]+(:\d{2,5})?(\/[A-Za-z0-9._~\/-]*)?$/.test(server.replace(/\/+$/, "")) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d{2,5})?$/.test(server.replace(/\/+$/, "")))
+      return "Indirizzo del server non valido: deve iniziare con https:// (lo trovi nella finestra di Cartellino Server).";
+    return "";
   }
 
   function placeLink(appUrl, place) {
@@ -3550,6 +3588,8 @@ var qrcode = function() {
     parseCoordinates,
     createPlace,
     placeLink,
+    officeFields,
+    checkOfficeSettings,
     pointMul,
     G,
     parseReportFile,
@@ -3586,7 +3626,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611151858"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611160722"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3780,8 +3820,9 @@ var qrcode = function() {
     $("nav").classList.remove("hidden");
     setView("oggi");
     ensureSede().then(renderSheet);
-    loadArchive().then(reopenFiles);
+    loadArchive().then(reopenFiles).then(startLive);
     refreshInboxState();
+    fillOffice();
   }
   $("unlockBtn").onclick = unlock;
   $("unlockPwd").addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
@@ -4084,7 +4125,14 @@ var qrcode = function() {
     }).join("")}</tr>`).join("");
     const legend = '<div class="legend"><span style="--c:#bbf7d0">Lavorato</span><span style="--c:#fde68a">Da controllare (A)</span><span style="--c:#bfdbfe">Ferie (F)</span><span style="--c:#fecaca">Malattia (M)</span><span style="--c:#e9d5ff">Permesso (P)</span></div>';
 
-    $("dash").innerHTML = todoHtml +
+    const nowIn = state.shifts.filter((s) => s.date === today && s.in && !s.out && shown(s.cf));
+    const liveHtml = (LIVE.on || nowIn.length)
+      ? `<div style="border:2px solid ${LIVE.on ? "#16a34a" : "#e2e8f0"};border-radius:14px;padding:10px 14px;margin:0 0 14px">
+          <h3 style="font-size:17px;margin:0 0 6px">${LIVE.on ? '<span class="pill ok">● IN DIRETTA</span> ' : ""}🟢 Adesso al lavoro: ${nowIn.length}</h3>
+          ${nowIn.length ? `<ul style="margin:0;padding-left:18px">${nowIn.map((s) => `<li><b>${esc(nameOf(s.cf))}</b> dalle ${esc(s.in)}${s.place ? ` · ${esc(s.place)}` : ""}</li>`).join("")}</ul>` : '<p class="note" style="margin:0">Nessuno ha l\'ENTRATA aperta in questo momento.</p>'}
+          ${LIVE.on ? `<p class="note" style="margin:6px 0 0">Ultimo arrivo dal server: ${esc(LIVE.lastAt ? new Date(LIVE.lastAt).toLocaleTimeString("it-IT") : "—")}</p>` : ""}
+        </div>` : "";
+    $("dash").innerHTML = liveHtml + todoHtml +
       `<h3 style="font-size:17px;margin:4px 0 10px">👷 Dipendenti</h3><div class="people">${cards || '<p class="empty">Nessun dipendente.</p>'}</div>` +
       `<h3 style="font-size:17px;margin:4px 0 6px">📅 Calendario del mese</h3>${legend}<div class="tablewrap"><table class="cal">${head}${rows}</table></div>`;
   }
@@ -4312,7 +4360,7 @@ var qrcode = function() {
     }
     let changed = false;
     for (const p of list) {
-      if (!p.link || p.gpsAt !== String(!!state.company.gps)) { p.link = await signedPlaceLink(p); p.gpsAt = String(!!state.company.gps); changed = true; }
+      if (!p.link || p.gpsAt !== String(!!state.company.gps) || (p.impTs || "") !== impTs()) { p.link = await signedPlaceLink(p); p.gpsAt = String(!!state.company.gps); p.impTs = impTs(); changed = true; }
     }
     if (changed || !loadPlaces().length) savePlaces(list);
     renderPlaces();
@@ -4597,6 +4645,99 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     a.click();
     alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
   };
+
+  // ---------------------------------------------------------- contatti dell'ufficio e server Premium
+  function impTs() { return (state.company && state.company.impostazioni && state.company.impostazioni.ts) || ""; }
+  function fillOffice() {
+    const imp = (state.company && state.company.impostazioni) || {};
+    $("offEmail").value = imp.email || "";
+    $("offWa").value = imp.whatsapp || "";
+    $("offServer").value = imp.server || "";
+    $("offFromServer").classList.toggle("hidden", !LIVE.server);
+    $("offState").textContent = imp.ts ? `Salvato il ${new Date(imp.ts).toLocaleString("it-IT")}. Se l'hai appena cambiato, ristampa i QR (sede e luoghi).` : "";
+  }
+  $("offSave").onclick = async () => {
+    const v = { email: $("offEmail").value.trim(), whatsapp: $("offWa").value.replace(/[\s.-]/g, ""), server: $("offServer").value.trim().replace(/\/+$/, "") };
+    const e = L.checkOfficeSettings(v);
+    if (e) { $("offState").innerHTML = `<span class="bad">${esc(e)}</span>`; return; }
+    state.company.impostazioni = { ...v, ts: new Date().toISOString() };
+    save(state.company);
+    await ensureSede();
+    renderSheet();
+    fillOffice();
+    $("offState").innerHTML = `<span class="ok">✓ Salvato.</span> <b>Ristampa i QR</b> (sede e luoghi): i telefoni prendono i nuovi dati alla prossima timbratura.`;
+  };
+  $("offFromServer").onclick = async () => {
+    try {
+      const info = await liveFetch("/api/info");
+      if (info.publicUrl) $("offServer").value = info.publicUrl;
+      else $("offState").textContent = "Il server non ha ancora un indirizzo internet: guarda la finestra di Cartellino Server.";
+    } catch { $("offState").textContent = "Non riesco a parlare con Cartellino Server."; }
+  };
+
+  // ---------------------------------------------------------- PREMIUM: diretta da Cartellino Server
+  // Quando questa pagina è aperta da Cartellino Server (sullo stesso PC), i report arrivano da soli, appena fatti.
+  // Il server tiene SOLO l'ultimo report cifrato di ogni telefono: non può leggerlo, lo apre questa pagina con la password.
+  const LIVE = { server: window.CARTELLINO_SERVER || null, on: false, lastAt: null, seen: {}, busy: false, again: false };
+  /** Chiamata al server su questo PC; asText = il report così com'è (testo), altrimenti la risposta JSON. */
+  async function liveFetch(path, opts, asText) {
+    const r = await fetch(path, { ...(opts || {}), headers: { "X-Cartellino-Token": LIVE.server.token, "Content-Type": "application/json" } });
+    if (!r.ok) throw new Error(`server ${r.status}`);
+    return asText ? r.text() : r.json();
+  }
+  async function archiveReplaceLive(sender, name, text) {
+    try {
+      const db = await archDb();
+      const all = await new Promise((res) => { const r = db.transaction("report").objectStore("report").getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => res([]); });
+      for (const old of all.filter((x) => x.name === name && x.code === state.company.code)) {
+        await new Promise((res) => { const tx = db.transaction("report", "readwrite"); tx.objectStore("report").delete(old.key); tx.oncomplete = res; tx.onerror = res; });
+      }
+    } catch { /* archivio non disponibile */ }
+    return archivePut(name, text);
+  }
+  async function livePull() {
+    if (!LIVE.server || !state.key) return;
+    if (LIVE.busy) { LIVE.again = true; return; }
+    LIVE.busy = true;
+    try {
+      const list = await liveFetch("/api/reports");
+      let changed = false;
+      for (const it of list.reports || []) {
+        if (LIVE.seen[it.sender] === it.hash) continue;
+        const text = await liveFetch(`/api/report/${encodeURIComponent(it.sender)}`, null, true);
+        const name = `diretta-${it.sender}.cartellino.json`;
+        const key = await archiveReplaceLive(it.sender, name, text);
+        state.files = state.files.filter((f) => f.name !== name);
+        state.files.push({ name, text, status: "", key, archived: true });
+        LIVE.seen[it.sender] = it.hash;
+        LIVE.lastAt = it.at;
+        changed = true;
+      }
+      LIVE.on = true;
+      $("liveBadge").classList.remove("hidden");
+      if (changed) await reopenFiles();
+      else if (state.data) safeRender();
+    } catch {
+      LIVE.on = false;
+      $("liveBadge").classList.add("hidden");
+    } finally {
+      LIVE.busy = false;
+      if (LIVE.again) { LIVE.again = false; livePull(); }
+    }
+  }
+  function startLive() {
+    if (!LIVE.server || !state.key || LIVE.started) return;
+    LIVE.started = true;
+    fillOffice();
+    liveFetch("/api/azienda", { method: "POST", body: JSON.stringify({ tenant: state.company.code }) }).catch(() => undefined);
+    livePull();
+    try {
+      const es = new EventSource(`/api/eventi?token=${encodeURIComponent(LIVE.server.token)}`);
+      es.addEventListener("report", () => livePull());
+    } catch { /* senza eventi: basta il controllo periodico */ }
+    setInterval(livePull, 30000);
+  }
+  window.__cartellinoLive = LIVE; // usato dai test automatici
 
   show();
   checkLicense();
