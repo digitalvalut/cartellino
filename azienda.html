@@ -58,10 +58,16 @@
   .hidden { display: none !important; }
   .note { font-size: 13px; color: var(--ink2); }
   .sheet { text-align: center; }
+  .sheet .big-title { font-size: 54px; font-weight: 900; letter-spacing: 1px; margin: 4px 0 0; color: var(--brand); }
   .sheet .company { font-size: 26px; font-weight: 800; margin: 0; }
-  .sheet .title { font-size: 30px; font-weight: 800; margin: 6px 0 16px; }
-  .sheet #qrBox svg { width: 300px; height: 300px; }
-  .sheet ol { text-align: left; display: inline-block; font-size: 18px; line-height: 1.6; max-width: 560px; margin: 10px 0; }
+  .sheet .title { font-size: 22px; font-weight: 700; margin: 2px 0 14px; color: var(--ink2); }
+  .sheet #qrBox { display: inline-block; padding: 14px; border: 6px solid var(--brand); border-radius: 24px; background: #fff; }
+  .sheet #qrBox svg { width: 300px; height: 300px; display: block; }
+  .sheet .steps3 { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 18px auto 8px; max-width: 760px; }
+  .sheet .steps3 div { flex: 1 1 200px; border: 2px solid var(--line); border-radius: 16px; padding: 12px; font-size: 17px; line-height: 1.35; }
+  .sheet .steps3 b.n { display: block; font-size: 34px; }
+  .sheet .first { font-size: 14px; color: var(--ink2); max-width: 640px; margin: 8px auto 0; }
+  @media print { .sheet .big-title, .sheet #qrBox { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   .link { font-size: 11px; color: var(--ink3); word-break: break-all; max-width: 640px; margin: 8px auto 0; }
   .btn-ok { background: var(--ok); border-color: var(--ok); color: #fff; padding: 6px 12px; font-size: 13px; }
   .btn-no { background: var(--bad); border-color: var(--bad); color: #fff; padding: 6px 12px; font-size: 13px; }
@@ -98,8 +104,12 @@
   #nav button.active { background: var(--brand); color: #fff; }
   #nav .badge { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 12px; margin-left: 4px; }
   /* una pagina alla volta */
-  body[data-view] #sheetCard, body[data-view] #places, body[data-view] #report, body[data-view] #results, body[data-view] #resetBox, body[data-view] #emptyHint { display: none !important; }
-  body[data-view="qr"] #sheetCard, body[data-view="qr"] #places, body[data-view="qr"] #resetBox { display: block !important; }
+  body[data-view] #sheetCard, body[data-view] #places, body[data-view] #report, body[data-view] #results, body[data-view] #resetBox, body[data-view] #emptyHint, body[data-view] #rulesCard { display: none !important; }
+  body[data-view="qr"] #sheetCard, body[data-view="qr"] #places, body[data-view="qr"] #resetBox, body[data-view="qr"] #rulesCard { display: block !important; }
+  #results .stats { display: none !important; }
+  body[data-view="oggi"] #monthBar { display: none !important; }
+  body[data-view="oggi"] #results .panel[data-panel="people"] { display: block !important; }
+  button.big { font-size: 18px; padding: 14px 22px; border-radius: 14px; }
   body[data-view="report"] #report { display: block !important; }
   body.hasdata[data-view="oggi"] #results, body.hasdata[data-view="dipendenti"] #results, body.hasdata[data-view="mese"] #results { display: block !important; }
   body:not(.hasdata)[data-view="oggi"] #emptyHint, body:not(.hasdata)[data-view="dipendenti"] #emptyHint, body:not(.hasdata)[data-view="mese"] #emptyHint { display: block !important; }
@@ -133,11 +143,9 @@
 </header>
 <nav id="nav" class="hidden noprint" aria-label="Menù">
   <button data-view="oggi">🏠 Oggi<span class="badge hidden" id="badgeOggi"></span></button>
-  <button data-view="dipendenti">👷 Dipendenti</button>
   <button data-view="mese">📅 Mese</button>
   <button data-view="report">📥 Report</button>
-  <button data-view="qr">📍 QR e luoghi</button>
-  <span id="liveBadge" class="pill ok hidden" title="Le timbrature arrivano da Cartellino Server appena fatte" style="align-self:center;margin-left:6px">● IN DIRETTA</span>
+  <button data-view="qr">⚙️ Impostazioni</button>
 </nav>
 <main>
   <section class="card hidden" id="errorBox" role="alert" style="border-color:#fca5a5;background:#fef2f2">
@@ -175,16 +183,16 @@
   <section class="card hidden" id="sheetCard">
     <div class="sheet" id="sheet">
       <p class="company" id="sheetCompany"></p>
+      <p class="big-title">📷 TIMBRA QUI</p>
       <p class="title">Timbra le presenze con il telefono</p>
-      <p style="font-size:22px;font-weight:700;margin:-8px 0 10px" id="sheetPlace"></p>
+      <p style="font-size:22px;font-weight:700;margin:-6px 0 12px" id="sheetPlace"></p>
       <div id="qrBox"></div>
-      <ol>
-        <li>La prima volta: apri la <b>fotocamera</b> del telefono e inquadra il QR.</li>
-        <li>Tocca il link che compare. <b>iPhone</b>: segui le istruzioni per metterla sulla schermata Home. <b>Android</b>: si apre subito.</li>
-        <li>Registrati <b>una sola volta</b> con nome, cognome e codice fiscale.</li>
-        <li>Ogni volta che entri o esci (anche pausa e pranzo): apri Cartellino → <b>📷 INQUADRA IL QR</b>.</li>
-        <li>A fine mese: <b>Invia report all'azienda</b> e mandalo all'ufficio.</li>
-      </ol>
+      <div class="steps3">
+        <div><b class="n">📷</b>Apri <b>Cartellino</b> e tocca <b>INQUADRA IL QR</b></div>
+        <div><b class="n">✅</b><b>ENTRATA</b> quando arrivi,<br><b>USCITA</b> quando vai via<br><span style="font-size:14px">(anche pausa e pranzo)</span></div>
+        <div><b class="n">📤</b>A fine mese:<br><b>Invia report</b> all'ufficio</div>
+      </div>
+      <p class="first"><b>La prima volta:</b> inquadra questo QR con la <b>fotocamera</b> del telefono e tocca il link (iPhone: "Aggiungi alla schermata Home"). Ti registri una sola volta.</p>
       <p class="note">Codice azienda: <b id="sheetCode"></b></p>
       <div class="madeby"><img src="data:image/png;base64,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" alt=""><span>Cartellino · realizzato da <b>Associazione Digital Valut</b></span></div>
       <p class="link noprint">Sul computer, per provare: <a id="activationLink" target="_blank" rel="noopener"></a></p>
@@ -246,19 +254,7 @@
         <div style="margin-top:8px"><button class="primary btn-small" id="gpsConfirm">Accendi il controllo posizione</button></div>
       </div>
       <p id="gpsState" class="note"></p>
-      <details id="officeBox" style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin:10px 0">
-        <summary style="cursor:pointer;font-weight:700">📨 Contatti dell'ufficio e invio automatico (Premium)</summary>
-        <p class="note">Il telefono del dipendente mostra a chi mandare il report. Con <b>Cartellino Server</b> (Premium) acceso su questo computer
-          le timbrature arrivano <b>da sole, appena fatte</b>: le vedi qui in diretta.</p>
-        <div class="row" style="align-items:flex-end">
-          <label class="note">Email dell'ufficio<br><input id="offEmail" type="email" placeholder="ufficio@azienda.it" style="width:220px"></label>
-          <label class="note">WhatsApp dell'ufficio<br><input id="offWa" placeholder="+39 333 1234567" style="width:170px"></label>
-          <label class="note">Indirizzo di Cartellino Server<br><input id="offServer" placeholder="https://…" style="width:300px"></label>
-          <button class="btn-small hidden" id="offFromServer">↙ Prendi dal server</button>
-          <button class="primary btn-small" id="offSave">Salva</button>
-        </div>
-        <p id="offState" class="note"></p>
-      </details>
+
       <div class="row" style="align-items:flex-end;margin-top:10px">
         <div><label class="field" for="placeType">Tipo</label>
           <select id="placeType"><option value="luogo">📍 Luogo (ufficio, cantiere)</option><option value="mezzo">🚚 Mezzo (camion, autobus, furgone)</option></select></div>
@@ -280,18 +276,9 @@
     <button class="primary" data-goview="report">📥 Vai ai report</button>
   </section>
 
-  <section class="card hidden" id="results">
-    <div class="row" style="justify-content:space-between">
-      <h2 style="margin:0">Presenze</h2>
-      <div class="row noprint">
-        <label class="note">Mese <select id="month" style="width:auto"></select></label>
-        <button class="primary btn-small" id="pdfBtn">📄 Report del mese (PDF)</button>
-        <button id="xlsxBtn">📊 File per il consulente (Excel)</button>
-        <button class="primary btn-small" id="sendBtn">✉️ Invia al consulente</button>
-      </div>
-    </div>
-    <details class="noprint" id="rulesBox" style="margin:10px 0">
-      <summary style="cursor:pointer;font-weight:700">⚙️ Orario di lavoro e consulente</summary>
+  <section class="card hidden noprint" id="rulesCard">
+    <h2>⏰ Orario di lavoro e consulente</h2>
+    <p class="muted">Si scrive una volta sola: serve per calcolare gli straordinari e per mandare il file al consulente.</p>
       <div class="row" style="margin-top:10px;align-items:flex-end">
         <label class="note">Ore normali al giorno<br><input id="ruleOre" type="number" min="1" max="24" step="0.5" style="width:90px"></label>
         <label class="note"><input id="ruleSabato" type="checkbox"> Si lavora anche il sabato</label>
@@ -299,14 +286,24 @@
         <label class="note">Email del consulente<br><input id="ruleEmail" type="email" placeholder="consulente@esempio.it" style="width:240px"></label>
       </div>
       <p class="note">Oltre queste ore è <b>straordinario</b>. Il sabato (se non si lavora) è tutto straordinario; domeniche e feste sono <b>ore festive</b>; le <b>notturne</b> (22-6) sono già comprese. Il consulente applica il contratto (CCNL).</p>
-    </details>
+  </section>
+
+  <section class="card hidden" id="results">
+    <div class="row" id="monthBar" style="justify-content:space-between;align-items:center">
+      <label style="font-size:20px;font-weight:800">📅 <select id="month" style="width:auto;font-size:18px;font-weight:700"></select></label>
+      <div class="row noprint" style="align-items:center">
+        <button class="primary big" id="sendBtn">✉️ Invia al consulente</button>
+        <button class="btn-small" id="xlsxBtn">📊 Scarica Excel</button>
+        <button class="btn-small" id="pdfBtn">📄 PDF</button>
+      </div>
+    </div>
     <div class="stats" id="stats"></div>
     <div class="tabs noprint" role="tablist">
       <button data-tab="dash" class="active">🏠 Cruscotto</button>
-      <button data-tab="summary">Riepilogo per il consulente</button>
+      <button data-tab="summary">Riepilogo</button>
       <button data-tab="detail">Giorno per giorno</button>
       <button data-tab="leaves">Assenze</button>
-      <button data-tab="checks">Controlli anti-frode</button>
+      <button data-tab="checks">Controlli</button>
       <button data-tab="people">Dipendenti</button>
     </div>
     <div class="panel" data-panel="dash"><div id="dash"></div></div>
@@ -316,7 +313,7 @@
     <div class="panel hidden" data-panel="leaves"><div class="tablewrap"><table id="tLeaves"></table></div>
       <p class="note">Le note sulla malattia sono dati sanitari: mostrale solo a chi gestisce il personale.</p></div>
     <div class="panel hidden" data-panel="checks"><div id="checks"></div></div>
-    <div class="panel hidden" data-panel="people"><div class="tablewrap"><table id="tPeople"></table></div>
+    <div class="panel hidden" data-panel="people"><h3 style="font-size:17px;margin:18px 0 8px">👷 Gestisci i dipendenti</h3><div class="tablewrap"><table id="tPeople"></table></div>
       <p class="note">"Cambia mansione" e "Non lavora più qui" preparano un messaggio firmato da mandare al telefono del dipendente.</p></div>
   </section>
 
@@ -3389,7 +3386,7 @@ var qrcode = function() {
   async function createPlace(companyKey, { tenantId, id, nome, lat, lng, r, gps, tipo, azienda }) {
     const name = String(nome || "").replace(/\s+/g, " ").trim();
     // Dati dell'azienda nel QR: la prima volta il QR del luogo ATTIVA anche l'app (un solo QR per tutto).
-    const az = azienda ? { az: String(azienda.name || "").slice(0, 80), col: String(azienda.color || "").replace(/^#/, ""), chiave: companyKey.publicKeyHex, ...officeFields(azienda.impostazioni) } : {};
+    const az = azienda ? { az: String(azienda.name || "").slice(0, 80), col: String(azienda.color || "").replace(/^#/, ""), chiave: companyKey.publicKeyHex } : {};
     if (name.length < 2 || name.length > 60) throw new Error("Il nome del luogo deve avere da 2 a 60 caratteri.");
     if (tipo === "mezzo") {
       // camion, autobus, furgone: si muove, quindi niente coordinate e niente GPS
@@ -3409,30 +3406,6 @@ var qrcode = function() {
     const placeId = id || randomHex(8);
     const signed = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", id: placeId, nome: name, lat, lng, r: radius, gps: !!gps, ...az });
     return { id: placeId, nome: name, lat, lng, r: radius, gps: !!gps, ...signed };
-  }
-
-  /**
-   * Contatti dell'ufficio e server Premium dentro il QR (firmati): il telefono li legge quando inquadra il QR.
-   * ts = quando il datore li ha salvati (il telefono tiene i più recenti).
-   */
-  function officeFields(imp) {
-    if (!imp || typeof imp.ts !== "string") return {};
-    const out = { ts: imp.ts };
-    const email = String(imp.email || "").trim();
-    const wa = String(imp.whatsapp || "").replace(/[^\d+]/g, "");
-    const srv = String(imp.server || "").trim().replace(/\/+$/, "");
-    if (email) out.ue = email.slice(0, 120);
-    if (wa) out.uw = wa.slice(0, 16);
-    if (srv) out.srv = srv.slice(0, 200);
-    return out;
-  }
-  /** Controlla i contatti e l'indirizzo del server scritti dal datore: restituisce un errore in italiano oppure "". */
-  function checkOfficeSettings({ email, whatsapp, server }) {
-    if (email && !/^[^\s@<>]{1,64}@[^\s@<>]{1,100}\.[A-Za-z]{2,}$/.test(email)) return "Email dell'ufficio non valida.";
-    if (whatsapp && !/^\+?\d{6,16}$/.test(String(whatsapp).replace(/[\s.-]/g, ""))) return "Numero WhatsApp non valido (solo cifre, es. +393331234567).";
-    if (server && !/^https:\/\/[A-Za-z0-9.-]+(:\d{2,5})?(\/[A-Za-z0-9._~\/-]*)?$/.test(server.replace(/\/+$/, "")) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d{2,5})?$/.test(server.replace(/\/+$/, "")))
-      return "Indirizzo del server non valido: deve iniziare con https:// (lo trovi nella finestra di Cartellino Server).";
-    return "";
   }
 
   function placeLink(appUrl, place) {
@@ -3588,8 +3561,6 @@ var qrcode = function() {
     parseCoordinates,
     createPlace,
     placeLink,
-    officeFields,
-    checkOfficeSettings,
     pointMul,
     G,
     parseReportFile,
@@ -3626,7 +3597,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611160814"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611160934"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3664,7 +3635,7 @@ var qrcode = function() {
   function show() {
     const c = state.company;
     $("setup").classList.toggle("hidden", !!c);
-    for (const id of ["sheetCard", "report", "resetBox", "places"]) $(id).classList.toggle("hidden", !c);
+    for (const id of ["sheetCard", "report", "resetBox", "places", "rulesCard"]) $(id).classList.toggle("hidden", !c);
     if (!c) return;
     document.querySelector("header").style.background = "#" + c.color;
     $("sheetCompany").textContent = c.name;
@@ -3820,9 +3791,8 @@ var qrcode = function() {
     $("nav").classList.remove("hidden");
     setView("oggi");
     ensureSede().then(renderSheet);
-    loadArchive().then(reopenFiles).then(startLive);
+    loadArchive().then(reopenFiles);
     refreshInboxState();
-    fillOffice();
   }
   $("unlockBtn").onclick = unlock;
   $("unlockPwd").addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
@@ -4125,14 +4095,7 @@ var qrcode = function() {
     }).join("")}</tr>`).join("");
     const legend = '<div class="legend"><span style="--c:#bbf7d0">Lavorato</span><span style="--c:#fde68a">Da controllare (A)</span><span style="--c:#bfdbfe">Ferie (F)</span><span style="--c:#fecaca">Malattia (M)</span><span style="--c:#e9d5ff">Permesso (P)</span></div>';
 
-    const nowIn = state.shifts.filter((s) => s.date === today && s.in && !s.out && shown(s.cf));
-    const liveHtml = (LIVE.on || nowIn.length)
-      ? `<div style="border:2px solid ${LIVE.on ? "#16a34a" : "#e2e8f0"};border-radius:14px;padding:10px 14px;margin:0 0 14px">
-          <h3 style="font-size:17px;margin:0 0 6px">${LIVE.on ? '<span class="pill ok">● IN DIRETTA</span> ' : ""}🟢 Adesso al lavoro: ${nowIn.length}</h3>
-          ${nowIn.length ? `<ul style="margin:0;padding-left:18px">${nowIn.map((s) => `<li><b>${esc(nameOf(s.cf))}</b> dalle ${esc(s.in)}${s.place ? ` · ${esc(s.place)}` : ""}</li>`).join("")}</ul>` : '<p class="note" style="margin:0">Nessuno ha l\'ENTRATA aperta in questo momento.</p>'}
-          ${LIVE.on ? `<p class="note" style="margin:6px 0 0">Ultimo arrivo dal server: ${esc(LIVE.lastAt ? new Date(LIVE.lastAt).toLocaleTimeString("it-IT") : "—")}</p>` : ""}
-        </div>` : "";
-    $("dash").innerHTML = liveHtml + todoHtml +
+    $("dash").innerHTML = todoHtml +
       `<h3 style="font-size:17px;margin:4px 0 10px">👷 Dipendenti</h3><div class="people">${cards || '<p class="empty">Nessun dipendente.</p>'}</div>` +
       `<h3 style="font-size:17px;margin:4px 0 6px">📅 Calendario del mese</h3>${legend}<div class="tablewrap"><table class="cal">${head}${rows}</table></div>`;
   }
@@ -4360,7 +4323,7 @@ var qrcode = function() {
     }
     let changed = false;
     for (const p of list) {
-      if (!p.link || p.gpsAt !== String(!!state.company.gps) || (p.impTs || "") !== impTs()) { p.link = await signedPlaceLink(p); p.gpsAt = String(!!state.company.gps); p.impTs = impTs(); changed = true; }
+      if (!p.link || p.gpsAt !== String(!!state.company.gps)) { p.link = await signedPlaceLink(p); p.gpsAt = String(!!state.company.gps); changed = true; }
     }
     if (changed || !loadPlaces().length) savePlaces(list);
     renderPlaces();
@@ -4635,9 +4598,11 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     downloadBytes(f.name, f.bytes, XLSX_TYPE);
     const email = consultantEmail();
     if (!email) {
-      $("rulesBox").open = true;
+      alert(`File scaricato: ${f.name}
+
+Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e consulente": la prossima volta l'email si prepara da sola.`);
+      setView("qr");
       $("ruleEmail").focus();
-      alert(`File scaricato: ${f.name}\n\nScrivi l'email del consulente in "Orario di lavoro e consulente": la prossima volta l'email si prepara da sola.`);
       return;
     }
     const a = document.createElement("a");
@@ -4645,99 +4610,6 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     a.click();
     alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
   };
-
-  // ---------------------------------------------------------- contatti dell'ufficio e server Premium
-  function impTs() { return (state.company && state.company.impostazioni && state.company.impostazioni.ts) || ""; }
-  function fillOffice() {
-    const imp = (state.company && state.company.impostazioni) || {};
-    $("offEmail").value = imp.email || "";
-    $("offWa").value = imp.whatsapp || "";
-    $("offServer").value = imp.server || "";
-    $("offFromServer").classList.toggle("hidden", !LIVE.server);
-    $("offState").textContent = imp.ts ? `Salvato il ${new Date(imp.ts).toLocaleString("it-IT")}. Se l'hai appena cambiato, ristampa i QR (sede e luoghi).` : "";
-  }
-  $("offSave").onclick = async () => {
-    const v = { email: $("offEmail").value.trim(), whatsapp: $("offWa").value.replace(/[\s.-]/g, ""), server: $("offServer").value.trim().replace(/\/+$/, "") };
-    const e = L.checkOfficeSettings(v);
-    if (e) { $("offState").innerHTML = `<span class="bad">${esc(e)}</span>`; return; }
-    state.company.impostazioni = { ...v, ts: new Date().toISOString() };
-    save(state.company);
-    await ensureSede();
-    renderSheet();
-    fillOffice();
-    $("offState").innerHTML = `<span class="ok">✓ Salvato.</span> <b>Ristampa i QR</b> (sede e luoghi): i telefoni prendono i nuovi dati alla prossima timbratura.`;
-  };
-  $("offFromServer").onclick = async () => {
-    try {
-      const info = await liveFetch("/api/info");
-      if (info.publicUrl) $("offServer").value = info.publicUrl;
-      else $("offState").textContent = "Il server non ha ancora un indirizzo internet: guarda la finestra di Cartellino Server.";
-    } catch { $("offState").textContent = "Non riesco a parlare con Cartellino Server."; }
-  };
-
-  // ---------------------------------------------------------- PREMIUM: diretta da Cartellino Server
-  // Quando questa pagina è aperta da Cartellino Server (sullo stesso PC), i report arrivano da soli, appena fatti.
-  // Il server tiene SOLO l'ultimo report cifrato di ogni telefono: non può leggerlo, lo apre questa pagina con la password.
-  const LIVE = { server: window.CARTELLINO_SERVER || null, on: false, lastAt: null, seen: {}, busy: false, again: false };
-  /** Chiamata al server su questo PC; asText = il report così com'è (testo), altrimenti la risposta JSON. */
-  async function liveFetch(path, opts, asText) {
-    const r = await fetch(path, { ...(opts || {}), headers: { "X-Cartellino-Token": LIVE.server.token, "Content-Type": "application/json" } });
-    if (!r.ok) throw new Error(`server ${r.status}`);
-    return asText ? r.text() : r.json();
-  }
-  async function archiveReplaceLive(sender, name, text) {
-    try {
-      const db = await archDb();
-      const all = await new Promise((res) => { const r = db.transaction("report").objectStore("report").getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => res([]); });
-      for (const old of all.filter((x) => x.name === name && x.code === state.company.code)) {
-        await new Promise((res) => { const tx = db.transaction("report", "readwrite"); tx.objectStore("report").delete(old.key); tx.oncomplete = res; tx.onerror = res; });
-      }
-    } catch { /* archivio non disponibile */ }
-    return archivePut(name, text);
-  }
-  async function livePull() {
-    if (!LIVE.server || !state.key) return;
-    if (LIVE.busy) { LIVE.again = true; return; }
-    LIVE.busy = true;
-    try {
-      const list = await liveFetch("/api/reports");
-      let changed = false;
-      for (const it of list.reports || []) {
-        if (LIVE.seen[it.sender] === it.hash) continue;
-        const text = await liveFetch(`/api/report/${encodeURIComponent(it.sender)}`, null, true);
-        const name = `diretta-${it.sender}.cartellino.json`;
-        const key = await archiveReplaceLive(it.sender, name, text);
-        state.files = state.files.filter((f) => f.name !== name);
-        state.files.push({ name, text, status: "", key, archived: true });
-        LIVE.seen[it.sender] = it.hash;
-        LIVE.lastAt = it.at;
-        changed = true;
-      }
-      LIVE.on = true;
-      $("liveBadge").classList.remove("hidden");
-      if (changed) await reopenFiles();
-      else if (state.data) safeRender();
-    } catch {
-      LIVE.on = false;
-      $("liveBadge").classList.add("hidden");
-    } finally {
-      LIVE.busy = false;
-      if (LIVE.again) { LIVE.again = false; livePull(); }
-    }
-  }
-  function startLive() {
-    if (!LIVE.server || !state.key || LIVE.started) return;
-    LIVE.started = true;
-    fillOffice();
-    liveFetch("/api/azienda", { method: "POST", body: JSON.stringify({ tenant: state.company.code }) }).catch(() => undefined);
-    livePull();
-    try {
-      const es = new EventSource(`/api/eventi?token=${encodeURIComponent(LIVE.server.token)}`);
-      es.addEventListener("report", () => livePull());
-    } catch { /* senza eventi: basta il controllo periodico */ }
-    setInterval(livePull, 30000);
-  }
-  window.__cartellinoLive = LIVE; // usato dai test automatici
 
   show();
   checkLicense();
