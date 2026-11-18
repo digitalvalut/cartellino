@@ -12,6 +12,11 @@
       "stato": "attivo",
       "scadenza": "2026-12-17",
       "prova": true
+    },
+    "CENTRO2026": {
+      "stato": "attivo",
+      "scadenza": "2026-12-17",
+      "prova": true
     }
   }
 }
