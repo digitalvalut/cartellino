@@ -105,7 +105,11 @@
   #nav button.active { background: var(--brand); color: #fff; }
   #nav .badge { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 12px; margin-left: 4px; }
   /* una pagina alla volta */
-  body[data-view] #sheetCard, body[data-view] #places, body[data-view] #report, body[data-view] #results, body[data-view] #resetBox, body[data-view] #emptyHint, body[data-view] #rulesCard { display: none !important; }
+  body[data-view] #sheetCard, body[data-view] #places, body[data-view] #report, body[data-view] #results, body[data-view] #resetBox, body[data-view] #emptyHint, body[data-view] #rulesCard, body[data-view] #staffCard { display: none !important; }
+  body[data-view="oggi"] #staffCard { display: block !important; }
+  body[data-view] #folderCard { display: none !important; }
+  body[data-view="report"] #folderCard { display: block !important; }
+  body[data-view]:not([data-view="oggi"]) #folderWarn { display: none !important; }
   body[data-view="qr"] #sheetCard, body[data-view="qr"] #places, body[data-view="qr"] #resetBox, body[data-view="qr"] #rulesCard { display: block !important; }
   #results .stats { display: none !important; }
   body[data-view="oggi"] #monthBar { display: none !important; }
@@ -178,6 +182,11 @@
     <div class="swatches" id="swatches"></div>
     <p id="setupError" class="bad" style="min-height:1.4em"></p>
     <button class="primary" id="setupBtn">Prepara tutto</button>
+    <div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--line)">
+      <p class="note"><b>Hai già Cartellino su un altro computer?</b> Apri la tua cartella dei dati: ritrovi tutto con la tua password.</p>
+      <button id="setupFromFolder">📁 Apri la cartella dei dati</button>
+      <p id="setupFolderInfo" class="ok"></p>
+    </div>
   </section>
 
   <!-- FOGLIO PER I DIPENDENTI -->
@@ -194,7 +203,7 @@
         <div><b class="n">📤</b>A fine mese:<br><b>Invia report</b> all'ufficio</div>
       </div>
       <p class="reportto hidden" id="sheetReportTo"></p>
-      <p class="first"><b>La prima volta:</b> inquadra questo QR con la <b>fotocamera</b> del telefono e tocca il link (iPhone: "Aggiungi alla schermata Home"). Ti registri una sola volta.</p>
+      <p class="first" id="sheetFirst"><b>La prima volta:</b> tocca l'<b>INVITO</b> che ti ha mandato l'azienda (WhatsApp): Cartellino si attiva già con i tuoi dati.</p>
       <p class="note">Codice azienda: <b id="sheetCode"></b></p>
       <div class="madeby"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAdyklEQVR42t19e3RdZ3Xn77e/cyW/JNmKLTkmOAl52JJjmBAgpUlqaIECgXTWBAGlA0x4LGbaDjDTLh4zfTC0Q1sotCw6rC4KbSh0SlHKDNACnRZYKrCS1kkgIVacjAMYTCzZSeQrv2Td8+3f/PGdK11J93H0cJLpXUtr2dK995zz7f3t/du//fiIJ8fLgH2W/jmWL/7j4ODTN87g3DYgu9QQj09NHrwPAAGoeAsBaMvg7quEcGkN/j0oPHL62H2TSy+1LyuuExs+/4S9+MRee8SAUQHw+V9fU+nZeuYSy2wvhetcuhrQJSD6zbI+9/jx6cnxN6eFrAsr/bt3cPgPLWRvU147C/C0iB+ROCTw64y6vXoc48D47ELBjxAY9SdKGNkTs/D7Qlq80QgA/f17L8qzeAOML6LOXgfwUsIyGGASBAFyFR/OW36zMAtJILoArjdyK8irCYzIHH2DeggY/pagL3VF/eMjjxw8CowWHx4JS5XhX5YA6hofgbH8ggt29dRCuInE63PEa43WCxKCAxKkPKaVJ4udGgFUALHDjmZaRJkkQVLSbmYgLyPtMkqvmw1+om9g+Bs03nYi6xnFkdGzT4Qgssdb4y+4YNeOWAlvqjluMbNLkuY6pFhfcEufYVj0PZ0XhHPC4fxPg7wkl3IHQMI20/hygC/vq538NWzf89eK+Pj08dGHHk9B2HnW+JC0byzfvH3o4t7tw7+XZ9m9YPhvNF4ixSh54QwZAGbFPXXS8pU+j6VrMABSun4eSVxB2rtounfz9uGP9+zYtaswj148A/9/2wEhmYzRuGXHnqfGyLdC/iazsFlyyPM8afoSLV+tzLk8BUnXl+RQ7gA3gOGN5nxV7+DwZ9zsg6eOjh5c+ExP+h2wL0s3OtzVN7jnHR7xHTP+qoDNaeGlBk1f6kbPLxpp9f3FzoDkeYS0ySy8Kbju7h0c+v1t24Y3pWfalz2ZBcD0fWP5pm1XXtc3iG/S7PcA9KeFR33h2WRRPOnvnMM9X1aRDbtEbXaFCmVZb5b9ymzgHZu3Dt1QwF5by3WzNfweAfC+gT1vD1YZI+3ZizS+xcKTpBmAmlwPQni0eKtaqDBb++AOzyMdF1RN2rxAEGoiiPqOyAnuUbCv9w4Ov7tQFi9M0pPCB2QA8r6+vVuwPn6KtBvlUcm5stX3O0AjScmPS9oP4BGBFxG6KAmt1UKTKzI9JCFNEooAewCHgAHCNrXeEEkQkjsAMwvv6xsY/slos284NXHo+MJg8AkRQLqBvsFdlwDx82R4euFgQwsHW194k3xS8n8SGAleA2iQVPdChmH5Br6V1NJGxFUCTpHchBTfHQb1MMCtAPvbXNfmdkPIXha86/be7btePT0xdudqhWCrXfwt24avB7JvkFZf/FbmRqSZoBNy/yKE/YRdT+B5gP7GFJ8t6WvJDbRDG1IbL9RGcsppARC+EiOuB/FZkk8l7UpAM4AfEjDdzsIBzOR5TvIyKvv65oFdN6XFX7lzttUsfu+23S9y45dJXCTFVibHwfSS+xjBL8P4TJA/IeCPImd3VSfHf2nq2APfBak1QDmd3HDt1PED36pOjL86EnsF/Q+A/WS4nMApwX8IcLa1IJhJHkFsglU+v3n77tevRgi20sXv2b77dQzhb0FsSjayuckhzSBNuvsnQWwg8QpIX4g8N1ydPPCbyZYOdwEwQnnHdRRtdSCUlhzoSNepiQP3VycO/DJkexy6FeAOgjsln0jOuqUQQoqq3YHs1r5tQ7+6UiHYijR/cOiVAdknIQVIXtAHzU2O+50QxmjhZsLgwHXVyfFfnHdiIDCeF8hCq2FwWR7CxuLHgJFQPfbd701PHLhF5LMBfMtCtjMZNH+sDRVhACh5ZJZ9oGdw6A1JCNdUzpMA5s0OaX9RIAM1+Y5EoJF0+edoOAWzm0T9zonJ+54zPXFg//zCj+VrGnhJYZnP7AXlYMBImJ64787q5Pj1iP52ghnM+iGdwNzObB77yGMMDJ/oGdz1cuCu2nJ2gpWnFsby3u17ns0QRqE5DNx88YGzkv85gT0StyPPr5s+euB9jcFa60CoI+Hmq8lviLLm6KwuCNiJYwc+bPDnQLqTIesXcArSbDsGVpIbs0/1XnDVs4rnC2slAAPgGwefPgDpcwR7gYSLm2Jt4BTkoyRfLOBAdfLU1dVHDt5daEUHdrEzxmd7PqaEcOrXGG31eQf2ZVOT9x/YvO70Da74CbNss8hzEmZar5FAsI+ZvnjBBbt2zJu41QmAKWMEZah9yhgukmLexOEKKao6AcX/BbObKf7F9OT4zcDhmfoOWpsM3YqRkhY6+JE2b00afPjw4ZnpifE3yf2dRusBENFGCFKMJLfnmf1VUriRjtRKBwHsC8Bo7Bvc/Vu07EXSHM5fanaEaYduA8MI3D9yYvLAf26gcteQRRRXCVR9GY6awL6sOnng/ZC/1ULYKCi2NkcMUsxp2fU9A8c+lMzavrBCAYwEYCzvGdj9XDL8mryF5icBzwD+lwRfA/mHq8fuf3fSgOXmWqVV7hLr/OFl7SDVkc2JyfGPKM/fYSHbKKAGqNYyTvA8D5b9x80Dw0WgNhKWe8MERoGLL15nsD8p6IFmiRKRIOB/DvBmCZ+pHrv/XQViaqw6sJLmZXXaTdraMrv1V0I21eP3f0Ax/x2zbKPAs2iZn6YJLoc+0t9/eW+RWeMyBDBiAGLPmQ3vZgh7Cru/+L2RNHPF/w3xBgB3Tx8bf2OLxX+8qg46o6ByJqwOFhqeeSwC+7Lqsfv/iyt+2iz0CjjTMr8gjxaynXmo/Ebh2ENZARgwGnu3DV9uZu+Qx9gsP0tacMV7Ca4XtbG67vTPFRCzcbEDAO8ZHLp2w7bh7SUWSaukG7QWAuy9aLh/U/+eoUVCUKFYNm3r3+Kej5PshXCupT/wGGl82+Zte57RkEvoJIARFmDjD0hbVzwTF+91yU8SuA/gC5x8CQ4fnpmvSJhP4W0Z2LXXxC9m4MbOAtDqFlDyVfoAAoDnHAyZxvq27n7mIu4/mZKjd52h8xcg1ECEFoEaEzi0zOkfavXsttTxjsa+gaEXmIWXFQRbE+0nIXxZwI1yf+upifHx+VTkvNkZGLhqMFr4PIgtHirTa6ml5/NVoU6D2IpgX9py4fDORZg+maLj498R8l+hhUqBrNQcFXk0Cz/dNzD0gvTZhQ55kQCSsxDx3hYL5aSZu98t4kIJt08fP/jRRZz4HPadgf+lMVwKabq7drayFk64XUYMXBsf4J4HQadJG3THbbj88u6Fwk/E2/TkAx9RzP+OIXQBih3A8wcS6TiqFgIYCQC8d2D3C4zhuVJUk3Caks4Z8B0Iz8gC39Jg9xtiB8S+weGPWgjPl0cX0bU87eb5q4ooISRIpNAljzVaeHbvdNfHljrSMQdAy+zNcq8WIKWZCQxSjGbZv+ob0EvrkXZrH0D7xRY5WSeNkL4m4DpRfzB1dPyHRVGtNxJ2m7ftfj0t/Ht5PluUn4ir5/pXa57qwrU2VMSciwMokBV5XrMQXrd5YOhtiyhnB/aFqYcP/EjCB2nBgJY+qKivxBvTfwe0WAAGjMZN/XuGCL40af8S20+XT4t4VEDXyXVnfrfQ/ga7P5b3bttzmUL4iBQX5AjOrIguaOHZHtdXQjOivX/LwK69C4m2hIrWM/uQe/4j0ELzXcAgRYB8cUPRlzUIIJWGW6ZbaNbMnhXaj29CuA7SBxLqGeF8KnaEwG8azW8l2FPUZM5DOJrWKBJeZbasfo02XJC62UB5FGiGXZHhVgwPdxWfLZ59n01O3nuawB+Rxha7gIAiLWSW279bsOZzvHxyNK9MSG5J0GXufhZEDdDM9PENH6/vmkbOqHfgs++iZdc3IezEUgIAH4c4QCvaBYq5WXhm3yN670KOJ/mCXOGT7rEKWGiBiExyCHjNhRdes6HYPbQi6kVvtft5ZnYxtIRqdtJA6D4KQxT+tAjNrdH09O0Yuprke1oEbii3A57MPREM8jynhXf2bht+cYMpcmDEimaQP6EZWyAig9zNws7T+dmfKnZPMOBYPfAaKZLi3gT5AMn2d8cs3lrsmjgPOa+pKOLPSKu0eEhCzvOjnWufuFfze2XSIoGGT2y68Mqt8+a34Hqcfyz32Xp1XYuyHIF4BRq1F7i8G9AL4c5F5qegmv2YwEECd5w6+uAjxa7RHGc0cPaXzbJnJNODgH+5L4M8p4UdIWa/Xtf+Qmk5ffzAQ4DGki9o6owtxbG4oZ4jMQDYtK37WWa2U8mBLBRAckFHCGw3+qcatNuA0bhh6+4LDXiX3Jsl58+DZlNPrKlikEcH8OZUkFZHNPusqEy6LYUjTQEFlcDJpT07dl0+h4KCxevT2i3x4EwtPzJIJ3rXDX41Leao12/QULmCxoFijVvTwaV8QF2AfIJpCrFtvA2AxvUxdu2c/10iIWn6O8V4tl5b2gINVSyGn5xfMNk1bdTtJIR+Ed88fHhspiG3WyxZbVYdNVwiz6wRCtJ554IklanSFm1BUkYAeGLi/sOiHixSE+2e+TkAYBdeeM0GENc0gZ912uUkiF6IY62jRpznsvK1c7BraAwX9wuqDk0N+FoRJnhTukSChD0AYGf85KCkweLG2HyJmcv1zw2493yZBpVYJT4JuFQ2v9FEMbjrK21MMlMrnC7ru/gZmzNjGHLYxuYl4QKBbkHHTj6y4QdNSz+kUvSWx1pI5usUgU2LbvwUgacRONCejNMa6LDmiMcA7GOz+5DuCaXA3BJ+a9QBwEP+bYhVgn1NirYNEghs55n84iyCzzIy9UktvCqLMoxNBG5PwReaMX4sYvKWeU8KfmbbxsdwvF1pyl0AhmL7pdOqURCJmQK5xFb34TZ8IpSgRZokdwSApyYOHe8bGHqAZs8pKgjD0veZiX5pBtfT0Ro85iC6If5wnr9YvgkSYX2P4SZs3yPJs0RNMHWmRDroLuMMHFuLZ1pZ2lKdquYkCTt6BnffaG7rEajCqScdilFu2Wxw9XcEFmq2A+YIzihigmCrrgUnGRy8KCMx2NY6kpD7fSu3uALBzYSNpq8LS/spEdKt0gsO73w0DzJILtKeb+Tz53Wy4bGD1W+ncfm5vJhkH4ExQHi0aNxSm+TQ1kzCzpZaRxlhcOJkCQqTHcJ7b812EktLQZow6mz/QCUVQprrnlcrD81SNUbM2/DmrJYoS7wy69BXwo6J7PKJFlsbCKK1yCmvMvNWyiweKpEc6relNmFx+Cq4q/ABY08go0kl5W9TfEXycaUpavQ2bzjdITcNQTsydiSfgErQ1CrCGK0pWueKxxis5b0IkOcBsyu8F9VRf6YSsb27ZavTFpZ/THXMudjKF5hcltVpfS8C5KT5yigTCWCEYFki21q+N5IM0XARgO8Uw42wjEDMBZ2hMFNk02wuvmPBjde9YZpTAwobQPa32LXty1LaO04H/LgcswtXlUU71RyEbcSNGwEOtonYV2byxFiow0kDmLd+JBUuWH3p/8eWqz81in8D4njDb+u0raUHSDicACHmSVCttGYVLkiYhfh1gqcWwkcxzRaiSaTqTYDiWYGT7YBARWqzchxoY3+ioBzCo1nHHCsBsxVNNSGALkHXA+yhkIn0hcKuP0DhXslN81MPlu75EoxHO9/RLeAlhDZCrDXYvARJKdV3A4QKjOvZygTNQWJvt+MuaIdfk3VALQNxhOClajMeQK6tK4Oh8uJGZsF4FWe6qlIkWfF6QJiWIP1O62q3GfnTbdpe1aEshW3Mbo20PkFfQBdu8bwrWDYbaZlQNZllcn+EIVQ8hq6nwXUH5gvKFtfGRkgmVNiG0l7forCPgJ+l0OXkeAZoP4Ab2u0EUbtXjtbkhNw21qamJh9oG5z0rRv2Nk5bSaCtoZ/al8YVzABr00fGH2t3H5u3D03JwXmaa8kGcIJQ0x0wVg/lL27KMBOA8wygLhMOG4GJtqhBAsQrGwqRlisDCQyzpzd1N0SYXPQTCm9oHcYQqCPv0R5614kGIs3JaHofHlnpHA22DAhjYbsvqRNGS5w3cSrtf3/YINytNJHQmjeeCYAuS7Us7eZhtMRxsaEqQh1+2lPwCSmtlicqrjXS8j7I4G1hLhlb1IEaAPQN7rqEwNMKXotNgzTinBgeshjiPcWMHrbIYYLk9lO1M09ZQUpDFGtrVBfkAPN2MFQdiTN5ubKUaO0GrxCKBGbNPG/WWyHnlTTbUFxvcS7AJZwDeHJz1vMDO3X0wUdBHC6i+GYuP5KWBcNwY0ndgjigvV2orRXdIspXOitCgCTUSrUxpdiGHYxZLQ+LG/UKmB7suYU++xL9kB4F5BIePnLkjrMF5tNdTT7Q2AMMAT/ToSZcLWxlEXTYGkxCoXeghzvkERRL7WC5teWcQAchzC5GgIWPFG4qQKUtLM8kAP4QRD+ou+dslsDvty0VSXJ5YRpEMbbwIRTYwQilsQQlqiLYeUZnB1+h9n9L+Lvz+lcy65wUoi/KBxgA9Q3sfVoa0eBNzbWIVGMljM0JgOZ/XxRWhRaO2GFhd9/gzHUNXZTlrAYVl1Gc24LSIVLILF/dDtJaOHGAci1Rlrpprt1EC91F3xgXrqPnkKoQumqs3D5XHV09evDbkA61LqmTp5Freu3yGUXGZTju1jy96HUOZRWlDKUESMs7OOv51N0i8xMEe11hfrioOhyQHiSxGcBDpyfvPQbArKhlcUD/kKJaNW8wcAeImzcOXDWYsv/7WOqRleyuShTnqiX1W5+8pXx1GlxSgLNUO3NWlHD6Yu3v2zr0dBqvLmB9WDJEhLZf4l6Rf13/nDUkWT5XIBprYZ5zs9AX6LcAEC7/cSieSe1dAHNIQbErrHbbt4uCywSEIPKCxUHbFqXOmhILWMv5chZIhrcyuYK4xIx7nBV1DNAgET9Tr7Gaq+ytbuU35P5/kWZ4egtnLAhvufDCazbg0KG8hBNWp+7BZeYitaqMmhC56nEIhQlasEZ35T1bh64g7eebtHc5aRR4Bxy7Sd5TnXzgB/USH5srqRsfnxXxZ2xepFt3Im4hXHImnn5N6QkoopdvUepoznyVidySMFRtk0ikYgEu5rNEhvfSrLtJ8FUHyN8E9DMufbSYwtLYI5ZqfYz6n/J4rnWDASm5QHtPX9/eLUV4yQ47v4gDzmiVQYBK2/DWw5xKmTB1VYi2/ogRYFRmGQD2DA5dC7NXpbL1JdpvLv82oK0gayfXn7mtYezBnL13AHZi4v7DEP6BDK2azQxyp4WnqDu+p07Tq13ulIzJ/pbYAe2j6sas1UpYWZHIy1XP1crcq9NigtjCB5NpU4vxu/oCwVdS+uPU3DhfYW5LIGDw35A8bx1V0oohFL/Us3XoioppqlXUno6vUAQoC5mvOBnPuao3X2lRAMUoLcHmqyr0sqzrWN+2PTdbyK5rMtbB09TIeKeki0T25Kx8qKGXYEkONQIjoXr04N2Q31Y0HudtaoWCGT8VnedcfrIFmaciEgYtrNYHOIScZLaMcTMNkbPiKk3YosIAVW2mthumDxcJJDbZJBHk/yHDvxX0oYT99y3oJW46K4Ky3+3QchSUTNG1JH4b0lTzwvYC+q3J4Pn6ApaKA9QgBC9SNTmKqLxjn/C5zpUWImOEfYy0pzSB7/WBtX8P6FkAEM6t/++Ltb9ZFYEDI3bi+IF7IP9ssQtimyF1DuOrSO7EEu6bAOiUapDM85qtrnqfUewIaVknwQvaYS6gUmpV9xX4/kbuv0ihsgJgJ82uKqqfucjvmeQPAzhEq7wIiL85NXVXtaGhr10ZR9oFVrN3pMZjthtnbktD8kXELlAremytfI9Yy+CnA4xko+lzCF7AYC+UoRwMbcxzixHzkW/K7xFPJbC9SU/1XP5Zwldg9kp5fm91cu/vF02NXqaOJg2hmDrwIwjv7LAL2o8STtzLOQKUNqx4UhbrfJQU5yPZtmxo/egqNQzK8MIMWclIeD5LtlAIaDhFwxa9Ny+E9FUCe0gbQPQ3FP0ITRW5hcaNRWAkTB8b/5jH/Gtkli0zolXDUL9aiYoSdhbEnCazRE5YSmUfriJ/S86ZIyvXgaRG3qeeDvVF8+8anL3yRMbpHgE1C5VrPdY+UH3k4F2LhlmVqiRTfbCQGd4gxSm0ZEo7PQiX4YTb4HyWr4rWnO1Xw6IxLjq6pOzJG1GQC3U2ds4n5GnRlUOYLY6M+yGg75vZjR5r920MG99TNGTHFZbyjdiJifsPU7qF8wOJtLyOz2UFT2obCZNe6vMs3ptQWPq3lEslEdlcRkwilKckvKKgKDGHkEOIEKOEXFAkeRzEtw22T+AZj/EVR4/edaZTEqnDdhyNwL7sxLH7Py/lv00LWZtJ4q2LUMtTEa3Df7WsRGhnruqOWyJLT2pvoCI8OX95EdE7mMoKBeUiasmvcFrAfghX07It7vE/nHz0gQcK0+OrHN5dzMucPPjr7vHztKxSWghEJFVLiNRWJQCmhy5Jxsmp+Z/CbOQldtBCSkQUiEghFggqBxgLYdQo1QCchHQngT2WVS52n/3wyWP3f7rs2TIlg5o0GWqgZ/ZV7vEfaVnnnZDi5bwow14NB1cvHC2B49Pfi0bcIn+QdgGlGkvPsG4EDY3fAacUmdLxswKqAO4kcBktu8Jj7XPVyYNvL8Y+x7U8P0AAcOjQoXOcqfycPN5ZIKO8FfopDFAsMmJlqyLUhE7wAgvGjv1hWlBi7gugJBkLc6KSowrmFQBSiqKZg5hNmTlMEdwP4TILlWGP8Wtb1p3+hQa8r7U+wsQBWLV6zwlV8LNSvHfRTqhDtGSrU8ASS2/7pgJQEUipHhCp3OxoKvUfQPPtB/WirOUlZAS4WNDPUE0pBTgJ4i4QV4eQXeXK/6kS8399OA2vXVYnjq2AU7fpI+OPRc6+QB73F0IomriVQnfNVaBFQZ5aDJzLvtYCjW+IRkv5EAmUg3LOR8SlKvvqnS+q90onBFUDEAn9gLADEq43y65wz29Xhpc++ugDJ1s0sq/5MVYOwE5NHDpuszMvdPevzjtmWpE5SShBikiOiuUIN/rCrU8tMGuk2g9enes3KGp25vyAr3CAuEjOkpglVSN4L8QfA3hxCJWd7vmXszz+bFFtbSuhy20V2SWbmvpedXpy3Uvk8dNpJ8DSLGVaQguYocK55XPw9XPMFzTzquzsZ3EuCvYURMlB5GJK2C4nMBQ0A2EKwH6ljvJ/Qwv9MeZ/Wp0cv2mlmr8Wh3kWRNRdeXVy/LWK/p8AzpAhMGXqM4DTMp0FWMoJS7JWPoFkTCknleOUpFS7k7pZVJxRli+fBccREA8KGDYLLyEtk+fvS6P652ZK+xN1muocOVU9duAPRfyU5PcwZBWQGYSdECqQZkr6AFuaB57rao9z7X3lArGGkvNEI1CMHYuJ68ueTuI6CuoxwF5sVnkG3L8flb+sOjn+Xxelc/FEHmer+jzk6YkD+6uV6ee64vshnLOQXQLiFSAmPc9KZLK4lBDjHCPpC9osOnVBz/mPJIyiSDiWc8I1FWXkAbCfp4V+xfyvcjt37cnJg39bn7O9FuOf1nAoRnFAwZEjZ6cnxt8J10/I45fMwl6IO7Lutk3NixMq9drLegGsK1XFqdwZMBKZTstj+lwEWSsa8TrvgFlzQNFCdgnA4zHWXls9Nv7qdPpfGvGPJ+mR5gVMHAnV4+PfqU4euJHSjQL+ucu8e3klKPIihqjD2lrBB6lk/U9OMocYCdaouT6FzgLoEgGruOKtuXh1ohbqrVWja3qu/JqfkV5Q2XPDqacm7vsSgC81nLFYokxdZwq6t25CKgRmBa0r1+rOKOgMRGc68SiI+DEdG0E8pYQTf5Tk86oT942h4WCL87BW50UAix10SBp5V60EjVyM/WV9NFYOYZZkFdJjpEHySifnS+AIxFOC1oPoElghMKSA9fD2o3cA4OTDBx8FMDZ/VPv5WfzzLYDF5YAqUb25jlYJCH5BQwa8nhK+WdLDAO7tMEeCop5GcSvNugmCTB1HZECuc19dxjFW8XwvzuMhAJQnpvxNLt8NjxcBugzgxQIuJbVO4IBZuFrK97cr7IcwS+ACEefgOipqGsJDlH4My78P+XdLwEc9HouPJ8msz86v4eGu/onattnu7p7KjE5PTR340aJdRQDq77/iKezu7sl99lyW89z69Vumjhy54+yT+dH+Hyd2cE4e+z9LAAAAAElFTkSuQmCC" alt=""><span>Cartellino · realizzato da <b>Associazione Digital Valut</b></span></div>
       <p class="link noprint">Sul computer, per provare: <a id="activationLink" target="_blank" rel="noopener"></a></p>
@@ -246,6 +255,8 @@
     <div id="placesLocked" class="note">Scrivi prima la tua password nel riquadro "I report dei dipendenti".</div>
     <div id="placesBox" class="hidden">
       <p class="note" style="margin:6px 0">I dipendenti timbrano <b>solo</b> inquadrando uno di questi QR. Il primo QR inquadrato attiva anche l'app.</p>
+      <label class="note" style="display:block;margin:6px 0"><input type="checkbox" id="optInvitati">
+        <b>Solo dipendenti invitati</b> (consigliato): il cartello serve solo a timbrare; nessuno può registrarsi da solo.</label>
       <label class="note" style="display:block;margin:6px 0"><input type="checkbox" id="optGps">
         <b>Controllo della posizione (GPS) nel momento della timbratura</b>: il telefono salva solo "sul posto" o "lontano", mai le coordinate.</label>
       <div id="gpsLegal" class="hidden" style="border:2px solid #f59e0b;background:#fffbeb;border-radius:12px;padding:12px;margin:8px 0">
@@ -270,6 +281,36 @@
       <p id="placeError" class="bad" style="min-height:1.2em"></p>
       <div class="tablewrap"><table id="tPlaces"></table></div>
     </div>
+  </section>
+
+  <div class="card hidden noprint" id="folderWarn" style="border:2px solid #f59e0b;background:#fffbeb">
+    ⚠️ <b>I tuoi dati sono solo in questo browser.</b> Collega la <b>cartella dei dati</b> (Desktop o Google Drive): se il computer si rompe non perdi niente.
+    <button class="primary btn-small" id="folderWarnBtn">📁 Collega adesso</button>
+  </div>
+
+  <section class="card hidden noprint" id="folderCard">
+    <h2>📁 Cartella dei dati</h2>
+    <p class="muted">Tutto si salva <b>da solo</b> in questa cartella (report, decisioni, dipendenti, cartelli, impostazioni), chiuso con la tua password.
+      Su un altro computer: "Apri la cartella dei dati" e la password, e ritrovi tutto.</p>
+    <p id="folderState"></p>
+    <button class="primary" id="folderPick">📁 Scegli la cartella</button>
+    <button class="hidden" id="folderReconnect">🔓 Ricollega la cartella</button>
+    <p class="note">Gli allegati delle email dei dipendenti: salvali nella sottocartella <b>"Report arrivati"</b>. All'apertura li leggo da solo.</p>
+  </section>
+
+  <section class="card hidden noprint" id="staffCard">
+    <h2>👷 I tuoi dipendenti</h2>
+    <p class="muted">Solo tu crei i dipendenti: scrivi i dati e mandagli l'<b>invito</b> (WhatsApp o QR). Lui lo tocca e Cartellino è già pronto, con i suoi dati.</p>
+    <div class="row" style="align-items:flex-end">
+      <label class="note">Nome<br><input id="newNome" autocomplete="off" style="width:140px"></label>
+      <label class="note">Cognome<br><input id="newCognome" autocomplete="off" style="width:150px"></label>
+      <label class="note">Codice fiscale<br><input id="newCf" autocomplete="off" maxlength="20" style="width:190px;text-transform:uppercase"></label>
+      <label class="note">Mansione<br><input id="newMansione" list="taskList" autocomplete="off" style="width:170px"></label>
+      <button class="primary big" id="newInvite">➕ Crea e invia l'invito</button>
+    </div>
+    <datalist id="taskList"><option>Operaio Edile</option><option>Capocantiere</option><option>Elettricista</option><option>Termoidraulico</option><option>Impiegato Amministrativo</option><option>Operatore Sanitario</option><option>Manovale</option></datalist>
+    <p id="newError" class="bad" style="min-height:1.2em"></p>
+    <div class="tablewrap"><table id="tStaff"></table></div>
   </section>
 
   <section class="card noprint" id="emptyHint" style="text-align:center">
@@ -3390,7 +3431,7 @@ var qrcode = function() {
   async function createPlace(companyKey, { tenantId, id, nome, lat, lng, r, gps, tipo, azienda }) {
     const name = String(nome || "").replace(/\s+/g, " ").trim();
     // Dati dell'azienda nel QR: la prima volta il QR del luogo ATTIVA anche l'app (un solo QR per tutto).
-    const az = azienda ? { az: String(azienda.name || "").slice(0, 80), col: String(azienda.color || "").replace(/^#/, ""), chiave: companyKey.publicKeyHex } : {};
+    const az = azienda ? { az: String(azienda.name || "").slice(0, 80), col: String(azienda.color || "").replace(/^#/, ""), chiave: companyKey.publicKeyHex, ...(azienda.soloInvitati ? { inv: 1 } : {}) } : {};
     if (name.length < 2 || name.length > 60) throw new Error("Il nome del luogo deve avere da 2 a 60 caratteri.");
     if (tipo === "mezzo") {
       // camion, autobus, furgone: si muove, quindi niente coordinate e niente GPS
@@ -3410,6 +3451,91 @@ var qrcode = function() {
     const placeId = id || randomHex(8);
     const signed = await signCompanyData(companyKey, { v: 1, t: tenantId, k: "luogo", id: placeId, nome: name, lat, lng, r: radius, gps: !!gps, ...az });
     return { id: placeId, nome: name, lat, lng, r: radius, gps: !!gps, ...signed };
+  }
+
+  // ------------------------------------------------------ CARTELLA DEI DATI del datore (cifrata con la sua password)
+  // Un file "Cartellino-dati.cartellino" nella cartella scelta dal datore (Desktop, Drive, chiavetta):
+  // in chiaro solo nome/codice/colore/chiave PUBBLICA dell'azienda (per sapere di chi è); tutto il resto cifrato.
+  const VAULT_FORMAT = "cartellino-dati";
+  const VAULT_INFO = enc.encode("cartellino-cartella-dati|1");
+  async function vaultKey(companyKey) {
+    const ikm = await subtle.importKey("raw", hexToBytes(companyKey.scalar.toString(16).padStart(64, "0")), "HKDF", false, ["deriveKey"]);
+    return subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: enc.encode(companyKey.publicKeyHex), info: VAULT_INFO }, ikm, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  /** Chiude a chiave i dati del datore (oggetto qualsiasi) in un testo da salvare nella cartella. */
+  async function sealVault(companyKey, company, data) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv }, await vaultKey(companyKey), enc.encode(JSON.stringify(data))));
+    return JSON.stringify({
+      format: VAULT_FORMAT, v: 1, savedAt: new Date().toISOString(),
+      azienda: { name: String(company.name || ""), code: String(company.code || ""), color: String(company.color || ""), publicKeyHex: companyKey.publicKeyHex },
+      iv: bytesToHex(iv), ct: bytesToHex(ct),
+    });
+  }
+  /** Legge solo la parte in chiaro (di che azienda è) senza password. Errore se non è un file dei dati di Cartellino. */
+  function vaultHeader(text) {
+    let v = null;
+    try { v = JSON.parse(text); } catch { v = null; }
+    if (!v || v.format !== VAULT_FORMAT || !v.azienda || !/^04[0-9a-f]{128}$/.test(String(v.azienda.publicKeyHex))) throw new Error("Questa cartella non contiene i dati di Cartellino.");
+    return { ...v.azienda, savedAt: v.savedAt };
+  }
+  /** Apre i dati con la chiave dell'azienda (password giusta), altrimenti errore. */
+  async function openVault(companyKey, text) {
+    const h = vaultHeader(text);
+    if (h.publicKeyHex !== companyKey.publicKeyHex) throw new Error("Password sbagliata per questi dati.");
+    const v = JSON.parse(text);
+    try {
+      const pt = await subtle.decrypt({ name: "AES-GCM", iv: hexToBytes(v.iv) }, await vaultKey(companyKey), hexToBytes(v.ct));
+      return JSON.parse(new TextDecoder().decode(pt));
+    } catch {
+      throw new Error("I dati della cartella sono rovinati o sono stati modificati.");
+    }
+  }
+
+  // ------------------------------------------------------ dipendenti: SOLO il datore li crea (invito firmato)
+  const CF_RE = /^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/;
+  const CF_ODD = { 0: 1, 1: 0, 2: 5, 3: 7, 4: 9, 5: 13, 6: 15, 7: 17, 8: 19, 9: 21, A: 1, B: 0, C: 5, D: 7, E: 9, F: 13, G: 15, H: 17, I: 19, J: 21,
+    K: 2, L: 4, M: 18, N: 20, O: 11, P: 3, Q: 6, R: 8, S: 12, T: 14, U: 16, V: 10, W: 22, X: 25, Y: 24, Z: 23 };
+  /** Codice fiscale italiano: formato e carattere di controllo (come src/lib/codiceFiscale.ts). */
+  function isValidCF(input) {
+    const cf = String(input || "").replace(/\s+/g, "").toUpperCase();
+    if (!CF_RE.test(cf)) return false;
+    let sum = 0;
+    for (let i = 0; i < 15; i++) sum += i % 2 === 0 ? CF_ODD[cf[i]] : /[0-9]/.test(cf[i]) ? Number(cf[i]) : cf.charCodeAt(i) - 65;
+    return String.fromCharCode(65 + (sum % 26)) === cf[15];
+  }
+  /** "de luca" -> "De Luca" (come normalizeName del telefono). */
+  function normalizeName(input) {
+    return String(input || "").replace(/\s+/g, " ").trim().toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (_, sep, ch) => sep + ch.toUpperCase());
+  }
+  /** Controlla i dati di un nuovo dipendente: restituisce un errore in italiano oppure "". */
+  function checkEmployee({ nome, cognome, cf, mansione }) {
+    const okName = (n) => n.length >= 2 && n.length <= 40 && /^[\p{L}][\p{L} '’-]*$/u.test(n);
+    if (!okName(normalizeName(nome))) return "Scrivi il nome (solo lettere).";
+    if (!okName(normalizeName(cognome))) return "Scrivi il cognome (solo lettere).";
+    if (!isValidCF(cf)) return "Codice fiscale non valido: controllalo sul documento.";
+    const m = String(mansione || "").replace(/\s+/g, " ").trim();
+    if (m.length < 2 || m.length > 60) return "Scrivi la mansione.";
+    return "";
+  }
+  /**
+   * Invito personale firmato: il telefono si attiva SOLO così (se l'azienda sceglie "solo dipendenti invitati"),
+   * già con azienda, nome, cognome, codice fiscale e mansione. Nessuno senza la password del datore può crearlo.
+   */
+  async function createInvite(companyKey, { tenantId, azienda, nome, cognome, cf, mansione }) {
+    const err = checkEmployee({ nome, cognome, cf, mansione });
+    if (err) throw new Error(err);
+    return signCompanyData(companyKey, {
+      v: 1, t: tenantId, k: "invito", id: randomHex(8),
+      cf: String(cf).replace(/\s+/g, "").toUpperCase(), nome: normalizeName(nome), cognome: normalizeName(cognome),
+      mansione: String(mansione).replace(/\s+/g, " ").trim(),
+      az: String(azienda.name || "").slice(0, 80), col: String(azienda.color || "").replace(/^#/, ""), chiave: companyKey.publicKeyHex,
+      at: new Date().toISOString(),
+    });
+  }
+  function inviteLink(appUrl, signed) {
+    const base = String(appUrl).replace(/\/?$/, "/");
+    return `${base}invito?m=${signed.m}&f=${signed.f}`;
   }
 
   function placeLink(appUrl, place) {
@@ -3565,6 +3691,14 @@ var qrcode = function() {
     parseCoordinates,
     createPlace,
     placeLink,
+    isValidCF,
+    normalizeName,
+    checkEmployee,
+    createInvite,
+    sealVault,
+    openVault,
+    vaultHeader,
+    inviteLink,
     pointMul,
     G,
     parseReportFile,
@@ -3601,7 +3735,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611161153"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611200902"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3623,7 +3757,7 @@ var qrcode = function() {
 
   // ---------------------------------------------------------- dati salvati su questo PC (niente di segreto)
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch { return null; } };
-  const save = (c) => { try { localStorage.setItem(STORE, JSON.stringify(c)); } catch { /* il browser non salva: si rifà al prossimo avvio */ } };
+  const save = (c) => { try { localStorage.setItem(STORE, JSON.stringify(c)); } catch { /* il browser non salva: si rifà al prossimo avvio */ } scheduleVault(); };
   const params = new URLSearchParams(location.search);
   const appUrl = (params.get("app") || DEFAULT_APP_URL).replace(/\/?$/, "/");
   const licenzeUrl = params.get("licenze") || DEFAULT_LICENZE_URL;
@@ -3639,7 +3773,7 @@ var qrcode = function() {
   function show() {
     const c = state.company;
     $("setup").classList.toggle("hidden", !!c);
-    for (const id of ["sheetCard", "report", "resetBox", "places", "rulesCard"]) $(id).classList.toggle("hidden", !c);
+    for (const id of ["sheetCard", "report", "resetBox", "places", "rulesCard", "staffCard"]) $(id).classList.toggle("hidden", !c);
     if (!c) return;
     document.querySelector("header").style.background = "#" + c.color;
     $("sheetCompany").textContent = c.name;
@@ -3740,7 +3874,23 @@ var qrcode = function() {
     $("setupBtn").textContent = "Preparo…";
     try {
       const key = await L.deriveCompanyKey(code, pwd);
-      state.company = { name, code, color, publicKeyHex: key.publicKeyHex, fingerprint: key.fingerprint, appUrl, soloQr: true };
+      if (PENDING.folder) {
+        // ripristino da un altro computer: stessa azienda, stessa password
+        if (key.publicKeyHex !== PENDING.folder.header.publicKeyHex) return err("Password sbagliata per questi dati (o codice diverso).");
+        const snap = await L.openVault(key, PENDING.folder.text);
+        restoreSnapshot(snap);
+        state.company = { ...(snap.company || {}), name, code, color: (snap.company && snap.company.color) || color, publicKeyHex: key.publicKeyHex, fingerprint: key.fingerprint, appUrl: (snap.company && snap.company.appUrl) || appUrl };
+        state.key = key;
+        save(state.company);
+        await folderSaveHandle(PENDING.folder.handle);
+        PENDING.folder = null;
+        $("setupPwd").value = $("setupPwd2").value = "";
+        show();
+        checkLicense();
+        unlocked();
+        return;
+      }
+      state.company = { name, code, color, publicKeyHex: key.publicKeyHex, fingerprint: key.fingerprint, appUrl, soloQr: true, soloInvitati: true };
       savePlaces([]);
       state.key = key; // già sbloccato per questa sessione
       save(state.company);
@@ -3797,6 +3947,8 @@ var qrcode = function() {
     ensureSede().then(renderSheet);
     loadArchive().then(reopenFiles);
     refreshInboxState();
+    renderStaff();
+    initFolder();
   }
   $("unlockBtn").onclick = unlock;
   $("unlockPwd").addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
@@ -3822,6 +3974,7 @@ var qrcode = function() {
     });
   }
   async function archivePut(name, text) {
+    saveReportToFolder(name, text);
     try {
       const h = L.bytesToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))));
       const db = await archDb();
@@ -3964,6 +4117,7 @@ var qrcode = function() {
     document.body.classList.toggle("hasdata", !!state.contents.length);
     if (!state.contents.length) { $("results").classList.add("hidden"); return; }
     state.data = await L.processReports(state.contents);
+    filterAuthorized(state.data);
     state.shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
     const months = new Set();
     state.shifts.forEach((s) => months.add(s.date.slice(0, 7)));
@@ -4187,6 +4341,7 @@ var qrcode = function() {
        <p class="note">Cosa controlla: firme digitali, registrazioni cancellate (numerazione), orologio del telefono spostato,
        stesso telefono usato da più dipendenti, cambio di telefono. Senza GPS non può sapere <i>dove</i> si è timbrato.</p>`;
     renderPeople();
+    renderStaff();
     renderDashboard(issues);
   }
 
@@ -4194,7 +4349,7 @@ var qrcode = function() {
   const DEC_STORE = "cartellino.decisioni";
   const PEOPLE_STORE = "cartellino.dipendenti";
   const loadJson = (k) => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch { return {}; } };
-  const saveJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* il browser non salva */ } };
+  const saveJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* il browser non salva */ } scheduleVault(); };
   const decisions = () => loadJson(DEC_STORE);
   const people = () => loadJson(PEOPLE_STORE);
   let sendCurrent = "";
@@ -4327,7 +4482,9 @@ var qrcode = function() {
     }
     let changed = false;
     for (const p of list) {
-      if (!p.link || p.gpsAt !== String(!!state.company.gps)) { p.link = await signedPlaceLink(p); p.gpsAt = String(!!state.company.gps); changed = true; }
+      if (!p.link || p.gpsAt !== String(!!state.company.gps) || (p.invAt || "false") !== String(!!state.company.soloInvitati)) {
+        p.link = await signedPlaceLink(p); p.gpsAt = String(!!state.company.gps); p.invAt = String(!!state.company.soloInvitati); changed = true;
+      }
     }
     if (changed || !loadPlaces().length) savePlaces(list);
     renderPlaces();
@@ -4342,12 +4499,15 @@ var qrcode = function() {
     qr.make();
     $("qrBox").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
     $("sheetPlace").textContent = "📍 " + sede.nome;
+    $("sheetFirst").innerHTML = state.company.soloInvitati
+      ? `<b>La prima volta:</b> tocca l'<b>INVITO</b> che ti ha mandato l'azienda (WhatsApp): Cartellino si attiva già con i tuoi dati.`
+      : `<b>La prima volta:</b> inquadra questo QR con la <b>fotocamera</b> del telefono e tocca il link (iPhone: "Aggiungi alla schermata Home"). Ti registri una sola volta.`;
   }
 
   // ---------------------------------------------------------- luoghi di lavoro
   const PLACES_STORE = "cartellino.luoghi";
   const loadPlaces = () => { try { const v = JSON.parse(localStorage.getItem(PLACES_STORE) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } };
-  const savePlaces = (v) => { try { localStorage.setItem(PLACES_STORE, JSON.stringify(v)); } catch { /* il browser non salva */ } };
+  const savePlaces = (v) => { try { localStorage.setItem(PLACES_STORE, JSON.stringify(v)); } catch { /* il browser non salva */ } scheduleVault(); };
 
   function renderPlaces() {
     const c = state.company;
@@ -4356,6 +4516,7 @@ var qrcode = function() {
     $("placesLocked").classList.toggle("hidden", !!state.key);
     $("placesBox").classList.toggle("hidden", !state.key);
     $("optGps").checked = !!c.gps;
+    $("optInvitati").checked = !!c.soloInvitati;
     $("gpsLegal").classList.add("hidden");
     $("gpsState").innerHTML = c.gps
       ? `<span class="pill warn">GPS acceso</span> dal ${esc(new Date(c.gps.at).toLocaleDateString("it-IT"))}, con dichiarazione del datore di lavoro. <b>Ristampa i QR dei luoghi.</b>`
@@ -4462,7 +4623,7 @@ var qrcode = function() {
       const backup = {
         format: "cartellino-backup", v: 1, savedAt: new Date().toISOString(),
         company: { name: state.company.name, code: state.company.code, color: state.company.color, publicKeyHex: state.company.publicKeyHex,
-          soloQr: !!state.company.soloQr, gps: state.company.gps || null },
+          soloQr: !!state.company.soloQr, soloInvitati: !!state.company.soloInvitati, gps: state.company.gps || null },
         places: loadPlaces(), decisions: decisions(), people: people(), orario: loadJson("cartellino.orario"), reports,
       };
       const day = new Date().toISOString().slice(0, 10);
@@ -4492,6 +4653,7 @@ var qrcode = function() {
       saveJson(PEOPLE_STORE, pe);
       if (b.orario && !Object.keys(loadJson("cartellino.orario")).length) { saveJson("cartellino.orario", b.orario); fillRules(); }
       if (b.company.soloQr) state.company.soloQr = true;
+      if (b.company.soloInvitati) state.company.soloInvitati = true;
       if (b.company.gps && !state.company.gps) state.company.gps = b.company.gps;
       save(state.company);
       for (const r of b.reports || []) if (r && typeof r.text === "string") await archivePut(r.name || "report.cartellino.json", r.text);
@@ -4626,6 +4788,284 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     a.click();
     alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
   };
+
+  // ---------------------------------------------------------- CARTELLA DEI DATI (mai più dati persi)
+  // Tutto si salva da solo, cifrato con la password, nella cartella scelta dal datore (Desktop, Drive, chiavetta).
+  var FOLDER = { handle: null, ok: false, savedAt: null, timer: null, needPermission: false, error: "" };
+  var PENDING = { folder: null };
+  const DATA_FILE = "Cartellino-dati.cartellino";
+  const DATA_PREV = "Cartellino-dati-precedente.cartellino";
+  const REP_DIR = "Report";
+  const ARR_DIR = "Report arrivati";
+  const canFolder = typeof window.showDirectoryPicker === "function";
+  function folderDb() {
+    return new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error("no idb")); return; }
+      const r = indexedDB.open("cartellino-cartella-dati", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("h");
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+  }
+  async function folderSaveHandle(h) {
+    try { const db = await folderDb(); await new Promise((res, rej) => { const tx = db.transaction("h", "readwrite"); tx.objectStore("h").put(h, "cartella"); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch { /* handle non salvabile (prove): resta in memoria */ }
+    FOLDER.handle = h;
+  }
+  async function folderLoadHandle() {
+    if (FOLDER.handle) return FOLDER.handle;
+    try { const db = await folderDb(); return await new Promise((res) => { const r = db.transaction("h").objectStore("h").get("cartella"); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }); } catch { return null; }
+  }
+  async function fsWrite(dir, name, text) {
+    const fh = await dir.getFileHandle(name, { create: true });
+    const w = await fh.createWritable();
+    await w.write(text);
+    await w.close();
+  }
+  async function fsRead(dir, name) {
+    try { const fh = await dir.getFileHandle(name); return await (await fh.getFile()).text(); } catch { return null; }
+  }
+  function snapshot() {
+    return { company: state.company, luoghi: loadPlaces(), decisioni: decisions(), dipendenti: people(), dainviare: outbox(), orario: loadJson("cartellino.orario") };
+  }
+  const rawSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* il browser non salva */ } };
+  /** Computer nuovo: tutto com'era nella cartella. */
+  function restoreSnapshot(snap) {
+    rawSet(PLACES_STORE, Array.isArray(snap.luoghi) ? snap.luoghi : []);
+    rawSet(DEC_STORE, snap.decisioni || {});
+    rawSet(PEOPLE_STORE, snap.dipendenti || {});
+    rawSet(OUT_STORE, snap.dainviare || {});
+    rawSet("cartellino.orario", snap.orario || {});
+  }
+  /** Stesso computer: si unisce quello che è stato fatto altrove, senza perdere niente di quello che c'è qui. */
+  function mergeSnapshot(snap) {
+    const places = loadPlaces();
+    for (const p of snap.luoghi || []) {
+      if (places.some((x) => x.id === p.id)) continue;
+      // stesso nome (es. la "Sede" creata di nuovo a mano): vale quella della cartella, i cartelli stampati restano buoni
+      const same = places.findIndex((x) => x.nome === p.nome && (x.tipo || "luogo") === (p.tipo || "luogo"));
+      if (same >= 0) places[same] = p;
+      else places.push(p);
+    }
+    rawSet(PLACES_STORE, places);
+    const dec = decisions();
+    for (const [k, v] of Object.entries(snap.decisioni || {})) if (!dec[k] || String((v && v.at) || "") > String((dec[k] && dec[k].at) || "")) dec[k] = v;
+    rawSet(DEC_STORE, dec);
+    const pe = people();
+    for (const [cf, v] of Object.entries(snap.dipendenti || {})) {
+      const l = pe[cf] || {};
+      pe[cf] = { ...v, ...l, invito: l.invito || v.invito, uscito: l.uscito || v.uscito, eliminato: !!(l.eliminato || v.eliminato) };
+    }
+    rawSet(PEOPLE_STORE, pe);
+    const out = outbox();
+    for (const [k, v] of Object.entries(snap.dainviare || {})) if (!out[k]) out[k] = v;
+    rawSet(OUT_STORE, out);
+    if (!Object.keys(loadJson("cartellino.orario")).length && snap.orario) rawSet("cartellino.orario", snap.orario);
+    if (snap.company && state.company) {
+      for (const k of ["soloInvitati", "gps", "soloQr"]) if (snap.company[k] && !state.company[k]) state.company[k] = snap.company[k];
+      try { localStorage.setItem(STORE, JSON.stringify(state.company)); } catch { /* il browser non salva */ }
+    }
+  }
+  async function writeVault() {
+    if (!FOLDER.ok || !FOLDER.handle || !state.key || !state.company) return;
+    const text = await L.sealVault(state.key, state.company, snapshot());
+    const prev = await fsRead(FOLDER.handle, DATA_FILE);
+    if (prev) await fsWrite(FOLDER.handle, DATA_PREV, prev);
+    await fsWrite(FOLDER.handle, DATA_FILE, text);
+    FOLDER.savedAt = new Date();
+    FOLDER.error = "";
+    renderFolder();
+  }
+  function scheduleVault() {
+    if (!FOLDER || !FOLDER.ok) return;
+    clearTimeout(FOLDER.timer);
+    FOLDER.timer = setTimeout(() => writeVault().catch((e) => { FOLDER.error = "Non riesco a salvare nella cartella: " + (e && e.message ? e.message : "errore"); renderFolder(); }), 500);
+  }
+  async function saveReportToFolder(name, text) {
+    if (!FOLDER || !FOLDER.ok || !FOLDER.handle) return;
+    try {
+      const dir = await FOLDER.handle.getDirectoryHandle(REP_DIR, { create: true });
+      const safe = String(name || "report.cartellino.json").replace(/[\\/:*?"<>|]+/g, "-");
+      if (!(await fsRead(dir, safe))) await fsWrite(dir, safe, text);
+    } catch { /* il report resta comunque nell'archivio del browser */ }
+  }
+  async function importFolderReports() {
+    for (const sub of [REP_DIR, ARR_DIR]) {
+      try { await importFromDirectory(await FOLDER.handle.getDirectoryHandle(sub, { create: true })); } catch { /* cartella non leggibile */ }
+    }
+  }
+  /** Collega la cartella: legge i dati (se ci sono), unisce, importa i report e salva. */
+  async function attachFolder(h) {
+    const t = await fsRead(h, DATA_FILE);
+    if (t) {
+      const head = L.vaultHeader(t);
+      if (head.code !== state.company.code || head.publicKeyHex !== state.company.publicKeyHex) throw new Error(`Questa cartella contiene i dati di un'altra azienda (${head.name}).`);
+      mergeSnapshot(await L.openVault(state.key, t));
+    }
+    FOLDER.handle = h;
+    FOLDER.ok = true;
+    FOLDER.needPermission = false;
+    renderPlaces();
+    renderSheet();
+    fillRules();
+    renderStaff();
+    await importFolderReports();
+    await writeVault();
+  }
+  async function initFolder() {
+    const h = await folderLoadHandle();
+    if (!h) { renderFolder(); return; }
+    let perm = "granted";
+    try { if (h.queryPermission) perm = await h.queryPermission({ mode: "readwrite" }); } catch { perm = "denied"; }
+    if (perm !== "granted") { FOLDER.handle = h; FOLDER.needPermission = true; renderFolder(); return; }
+    try { await attachFolder(h); } catch (e) { FOLDER.ok = false; FOLDER.error = e.message || "Errore"; renderFolder(); }
+  }
+  async function pickFolder() {
+    if (!canFolder) { alert("Per la cartella dei dati usa Microsoft Edge o Google Chrome."); return null; }
+    try { return await window.showDirectoryPicker({ id: "cartellino-dati", mode: "readwrite", startIn: "desktop" }); }
+    catch (e) { if (e && e.name !== "AbortError") showError("Non riesco ad aprire la cartella: " + (e.message || "errore")); return null; }
+  }
+  async function chooseFolder() {
+    const h = await pickFolder();
+    if (!h) return;
+    try { await folderSaveHandle(h); await attachFolder(h); }
+    catch (e) { FOLDER.ok = false; FOLDER.error = e.message || "Errore"; renderFolder(); }
+  }
+  function renderFolder() {
+    const el = $("folderState");
+    if (!el || !state.company) return;
+    $("folderCard").classList.remove("hidden");
+    $("folderReconnect").classList.toggle("hidden", !FOLDER.needPermission);
+    const showWarn = !!state.key && !FOLDER.ok;
+    $("folderWarn").classList.toggle("hidden", !showWarn);
+    if (!canFolder) el.innerHTML = `<span class="bad">Per la cartella dei dati apri Cartellino con <b>Microsoft Edge</b> o <b>Google Chrome</b>.</span>`;
+    else if (FOLDER.error) el.innerHTML = `<span class="bad">${esc(FOLDER.error)}</span>`;
+    else if (FOLDER.ok) el.innerHTML = `<span class="ok">✅ Collegata: <b>${esc(FOLDER.handle.name || "cartella")}</b>${FOLDER.savedAt ? ` · ultimo salvataggio alle ${esc(FOLDER.savedAt.toLocaleTimeString("it-IT"))}` : ""}</span>`;
+    else if (FOLDER.needPermission) el.innerHTML = `<span class="warn">🔓 La cartella <b>${esc(FOLDER.handle.name || "")}</b> va ricollegata (Windows lo chiede per sicurezza).</span>`;
+    else el.innerHTML = `<span class="bad">⚠️ Non collegata: i dati sono solo in questo browser.</span>`;
+  }
+  $("folderPick").onclick = chooseFolder;
+  $("folderWarnBtn").onclick = async () => {
+    if (FOLDER.needPermission && FOLDER.handle) return $("folderReconnect").onclick();
+    await chooseFolder();
+  };
+  $("folderReconnect").onclick = async () => {
+    try {
+      if (FOLDER.handle.requestPermission && (await FOLDER.handle.requestPermission({ mode: "readwrite" })) !== "granted") return;
+      await attachFolder(FOLDER.handle);
+    } catch (e) { FOLDER.error = e.message || "Errore"; renderFolder(); }
+  };
+  /** Prima volta su un computer nuovo: si sceglie la cartella dei dati, poi password. */
+  async function setupFromFolder(h) {
+    const t = h ? await fsRead(h, DATA_FILE) : null;
+    if (!t) { $("setupError").textContent = h ? "In questa cartella non ci sono i dati di Cartellino." : ""; return; }
+    let head;
+    try { head = L.vaultHeader(t); } catch (e) { $("setupError").textContent = e.message; return; }
+    PENDING.folder = { handle: h, text: t, header: head };
+    $("setupName").value = head.name;
+    $("setupCode").value = head.code;
+    if (head.color) { color = head.color; document.querySelectorAll(".swatch").forEach((sw) => sw.classList.toggle("sel", sw.dataset.c === head.color)); }
+    $("setupError").textContent = "";
+    $("setupFolderInfo").textContent = `✅ Trovati i dati di ${head.name} (${head.code}). Scrivi la TUA password (due volte) e premi "Prepara tutto".`;
+  }
+  $("setupFromFolder").onclick = async () => setupFromFolder(await pickFolder());
+  window.__cartellinoFolder = {
+    attach: async (h) => { await folderSaveHandle(h); await attachFolder(h); },
+    setupFrom: setupFromFolder,
+    info: () => ({ ok: FOLDER.ok, error: FOLDER.error }),
+    flush: () => writeVault(),
+  }; // usato dai test automatici
+
+  // ---------------------------------------------------------- dipendenti creati SOLO dal datore (invito firmato)
+  /** Con "solo dipendenti invitati": i report di chi non è stato invitato (o è stato eliminato) NON contano. */
+  function filterAuthorized(d) {
+    const pe = people();
+    const strictly = !!(state.company && state.company.soloInvitati);
+    const ok = (cf) => !strictly || (pe[cf] && pe[cf].invito && !pe[cf].eliminato);
+    const outsiders = new Set(), late = new Set();
+    const keep = (r) => {
+      if (!ok(r.cf)) { outsiders.add(r.cf); return false; }
+      const info = pe[r.cf];
+      const t = r.timestamp || r.createdAt;
+      if (info && info.uscito && t && t > info.uscito) { late.add(r.cf); return false; } // dopo "non lavora più qui / elimina"
+      return true;
+    };
+    d.attendances = d.attendances.filter(keep);
+    d.leaves = d.leaves.filter(keep);
+    d.corrections = d.corrections.filter(keep);
+    for (const cf of late) d.issues.push({ cf, id: null, text: "Ha timbrato DOPO l'uscita dall'azienda: queste timbrature non contano." });
+    for (const cf of outsiders) d.issues.push({ cf, id: null, text: "NON è tra i dipendenti invitati: le sue timbrature non contano. Se lavora per te, crealo in \"I tuoi dipendenti\"." });
+  }
+
+  function renderStaff() {
+    const pe = people();
+    const active = new Set(state.data ? [...state.data.lastReport.keys()] : []);
+    const rows = Object.entries(pe).filter(([, v]) => v.invito && !v.eliminato)
+      .sort(([, a], [, b]) => (a.invito.cognome + a.invito.nome).localeCompare(b.invito.cognome + b.invito.nome, "it"));
+    table($("tStaff"),
+      [{ t: "Dipendente" }, { t: "Mansione" }, { t: "Stato" }, { t: "" }],
+      rows.map(([cf, v]) => ({ cells: [
+        `<b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b><br><span class="note">${esc(cf)}</span>`,
+        esc(v.mansione || v.invito.mansione),
+        v.uscito ? `<span class="pill bad">Non lavora più qui</span>` : active.has(cf) ? `<span class="pill ok">✅ Attivo</span>` : `<span class="pill warn">⏳ Invito mandato</span>`,
+        `<button class="btn-small" data-staff="resend" data-cf="${esc(cf)}">📨 Rimanda invito</button> <button class="btn-small" data-staff="delete" data-cf="${esc(cf)}">🗑 Elimina</button>`,
+      ] })),
+      "Nessun dipendente: crea il primo qui sopra.");
+  }
+  async function sendInvite(cf) {
+    const v = people()[cf];
+    if (!v || !v.invito) return;
+    if (!state.key) { showError("Scrivi prima la password."); return; }
+    const signed = await L.createInvite(state.key, { tenantId: state.company.code, azienda: state.company, nome: v.invito.nome, cognome: v.invito.cognome, cf, mansione: v.mansione || v.invito.mansione });
+    const link = L.inviteLink(state.company.appUrl || appUrl, signed);
+    showSend(`Invito per ${v.invito.cognome} ${v.invito.nome}`, "Mandalo con WhatsApp (o fagli inquadrare il QR): lo tocca e Cartellino si attiva già con i suoi dati. Il link è solo per lui.", link);
+  }
+  $("newInvite").onclick = async () => {
+    const data = { nome: $("newNome").value, cognome: $("newCognome").value, cf: $("newCf").value.replace(/\s+/g, "").toUpperCase(), mansione: $("newMansione").value };
+    const err = L.checkEmployee(data);
+    if (err) { $("newError").textContent = err; return; }
+    if (!state.key) { $("newError").textContent = "Scrivi prima la password (riquadro in alto)."; return; }
+    $("newError").textContent = "";
+    const pe = people();
+    const prev = pe[data.cf] || {};
+    pe[data.cf] = { ...prev, eliminato: false, uscito: prev.eliminato ? null : prev.uscito,
+      invito: { at: new Date().toISOString(), nome: L.normalizeName(data.nome), cognome: L.normalizeName(data.cognome), mansione: data.mansione.replace(/\s+/g, " ").trim() } };
+    if (!prev.mansione) delete pe[data.cf].mansione;
+    saveJson(PEOPLE_STORE, pe);
+    for (const id of ["newNome", "newCognome", "newCf", "newMansione"]) $(id).value = "";
+    renderStaff();
+    await sendInvite(data.cf);
+    if (state.contents.length) await recompute();
+  };
+  $("tStaff").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-staff]");
+    if (!b) return;
+    const cf = b.dataset.cf, pe = people(), v = pe[cf];
+    if (!v) return;
+    if (b.dataset.staff === "resend") { await sendInvite(cf); return; }
+    const who = `${v.invito.cognome} ${v.invito.nome}`;
+    if (!confirm(`Eliminare ${who}? Da adesso le sue timbrature NON contano più e il suo Cartellino si ferma appena apre il messaggio che ti preparo.`)) return;
+    pe[cf] = { ...v, eliminato: true, uscito: v.uscito || new Date().toISOString() };
+    saveJson(PEOPLE_STORE, pe);
+    renderStaff();
+    if (state.key) {
+      try {
+        const signed = await L.createCompanyMessage(state.key, { tenantId: state.company.code, cf, kind: "uscito" });
+        showSend(`Messaggio per ${who}`, "Mandaglielo: il suo Cartellino smette di timbrare (potrà solo mandare l'ultimo report).", L.companyMessageLink(state.company.appUrl || appUrl, signed));
+      } catch { /* il messaggio si può rifare da "Gestisci i dipendenti" */ }
+    }
+    if (state.contents.length) await recompute();
+  });
+  $("optInvitati").onchange = async () => {
+    state.company.soloInvitati = $("optInvitati").checked;
+    save(state.company);
+    await ensureSede();
+    renderSheet();
+    if (state.contents.length) await recompute();
+  };
+  window.__cartellinoStaff = { renderStaff }; // usato dai test automatici
+
+  // Area azienda aperta dal sito: copia per usarla anche senza internet (aperta da file: non serve)
+  if (location.protocol === "https:" && "serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", { scope: "./" }).catch(() => undefined);
 
   show();
   checkLicense();
