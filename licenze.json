@@ -3,11 +3,6 @@
     "DEMO": {
       "stato": "attivo"
     },
-    "SANTAMARIA2026": {
-      "stato": "attivo",
-      "scadenza": "2026-12-15",
-      "prova": true
-    },
     "SALOMN2026": {
       "stato": "attivo",
       "scadenza": "2026-12-17",
