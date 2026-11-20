@@ -10,12 +10,31 @@
     --brand: #0f172a; --ok: #15803d; --okbg: #dcfce7; --bad: #b91c1c; --badbg: #fee2e2; --warn: #92400e; --warnbg: #fef3c7;
   }
   * { box-sizing: border-box; }
+  /* stile comune: ombre leggere, angoli morbidi, campi tutti uguali */
+  .card { box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.05); }
+  input[type=email], input[type=number], input[type=date], input[type=time], input:not([type]) {
+    font: inherit; font-size: 16px; padding: 10px 12px; border: 2px solid var(--line); border-radius: 12px; color: var(--ink); background: #fff; }
+  input[type=email]:focus, input[type=number]:focus, input[type=date]:focus, input[type=time]:focus, input:not([type]):focus { outline: none; border-color: var(--brand); }
+  button { transition: transform .08s ease, box-shadow .15s ease; }
+  button:not(:disabled):hover { box-shadow: 0 4px 14px rgba(15,23,42,.10); }
+  button:not(:disabled):active { transform: translateY(1px); }
+  tbody tr:hover td { background: #f8fafc; }
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "▸ "; }
+  details[open] > summary::before { content: "▾ "; }
+  .step { display: flex; align-items: center; gap: 10px; margin: 18px 0 4px; font-weight: 800; font-size: 17px; }
+  .step b { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; align-items: center; justify-content: center; font-size: 15px; }
+  #startCard ol { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
+  #startCard li { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  #startCard li.done { background: #f0fdf4; border-color: #bbf7d0; color: var(--ok); }
+  #startCard li .t { flex: 1; font-weight: 600; }
   body { margin: 0; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); }
   header { background: var(--brand); color: #fff; padding: 18px 24px; }
   header h1 { margin: 0; font-size: 22px; }
   header p { margin: 4px 0 0; color: #cbd5e1; font-size: 14px; }
   main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; margin-bottom: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; margin-bottom: 16px; }
   .card h2 { margin: 0 0 6px; font-size: 20px; }
   .muted { color: var(--ink2); font-size: 15px; margin: 0 0 14px; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
@@ -109,8 +128,10 @@
   body[data-view="oggi"] #staffCard { display: block !important; }
   body[data-view] #folderCard { display: none !important; }
   body[data-view="report"] #folderCard { display: block !important; }
-  body[data-view]:not([data-view="oggi"]) #folderWarn { display: none !important; }
-  body[data-view="qr"] #sheetCard, body[data-view="qr"] #places, body[data-view="qr"] #resetBox, body[data-view="qr"] #rulesCard { display: block !important; }
+  body[data-view]:not([data-view="oggi"]) #folderWarn, body[data-view]:not([data-view="oggi"]) #startCard { display: none !important; }
+  body[data-view="qr"] #sheetCard, body[data-view="qr"] #places, body[data-view="qr"] #resetBox, body[data-view="qr"] #rulesCard, body[data-view="qr"] #sosCard { display: block !important; }
+  body[data-view] #sosCard { display: none !important; }
+  body[data-view="qr"] #sosCard { display: block !important; }
   #results .stats { display: none !important; }
   body[data-view="oggi"] #monthBar { display: none !important; }
   body[data-view="oggi"] #results .panel[data-panel="people"] { display: block !important; }
@@ -169,16 +190,18 @@
   <section class="card hidden" id="setup">
     <h2>Benvenuto! Prepariamo la tua azienda</h2>
     <p class="muted">Si fa una volta sola. Se l'hai già fatto su un altro computer, scrivi gli stessi dati e la stessa password.</p>
+    <div class="step"><b>1</b> La tua ditta</div>
     <label class="field" for="setupName">Nome dell'azienda</label>
     <input type="text" id="setupName" placeholder="Es. Rossi Costruzioni S.r.l." maxlength="80">
     <label class="field" for="setupCode">Codice cliente (te lo dà DigitalValut)</label>
     <input type="text" id="setupCode" placeholder="Es. ROSSI2026" maxlength="20" style="text-transform:uppercase">
+    <div class="step"><b>2</b> La tua password (la sai solo tu)</div>
     <label class="field" for="setupPwd">Scegli una password (almeno 8 caratteri)</label>
     <input type="password" id="setupPwd" autocomplete="new-password">
     <label class="field" for="setupPwd2">Riscrivi la password</label>
     <input type="password" id="setupPwd2" autocomplete="new-password">
     <p class="note" style="margin-top:8px">⚠️ <b>Scrivi la password su un foglio e conservalo.</b> Serve ogni mese per aprire i report. Se la perdi, nessuno può recuperarla.</p>
-    <label class="field">Colore dell'app per i tuoi dipendenti</label>
+    <div class="step"><b>3</b> Il colore dell'app dei tuoi dipendenti</div>
     <div class="swatches" id="swatches"></div>
     <p id="setupError" class="bad" style="min-height:1.4em"></p>
     <button class="primary" id="setupBtn">Prepara tutto</button>
@@ -186,6 +209,8 @@
       <p class="note"><b>Hai già Cartellino su un altro computer?</b> Apri la tua cartella dei dati: ritrovi tutto con la tua password.</p>
       <button id="setupFromFolder">📁 Apri la cartella dei dati</button>
       <p id="setupFolderInfo" class="ok"></p>
+      <label class="note hidden" id="setupSosBox" style="display:block">🆘 Hai perso la password? Scrivi il codice del <b>foglio di emergenza</b>
+        (e sopra una NUOVA password due volte):<br><input id="setupSos" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" style="width:330px;text-transform:uppercase" autocomplete="off"></label>
     </div>
   </section>
 
@@ -223,6 +248,16 @@
         <button class="primary" id="unlockBtn">Apri</button>
       </div>
       <p id="unlockError" class="bad" style="min-height:1.4em"></p>
+      <details id="lostBox" style="margin-top:6px">
+        <summary style="cursor:pointer" class="note">🆘 Ho perso la password (ho il foglio di emergenza)</summary>
+        <div class="row" style="align-items:flex-end;margin-top:8px">
+          <label class="note">Codice del foglio di emergenza<br><input id="lostCode" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" style="width:330px;text-transform:uppercase" autocomplete="off"></label>
+          <label class="note">Nuova password<br><input type="password" id="lostPwd" autocomplete="new-password" style="width:180px"></label>
+          <label class="note">Riscrivila<br><input type="password" id="lostPwd2" autocomplete="new-password" style="width:180px"></label>
+          <button class="primary" id="lostBtn">Riapri e cambia password</button>
+        </div>
+        <p id="lostError" class="bad" style="min-height:1.2em"></p>
+      </details>
     </div>
     <div id="dropBox" class="hidden">
       <p class="muted"><span class="ok">✓ Pronto.</span> Trascina qui i file che ti hanno mandato i dipendenti (anche tanti insieme).</p>
@@ -272,15 +307,23 @@
         <div><label class="field" for="placeType">Tipo</label>
           <select id="placeType"><option value="luogo">📍 Luogo (ufficio, cantiere)</option><option value="mezzo">🚚 Mezzo (camion, autobus, furgone)</option></select></div>
         <div><label class="field" for="placeName">Nome</label><input type="text" id="placeName" placeholder="Es. Cantiere Via Roma" maxlength="60" style="max-width:240px"></div>
-        <div><label class="field" for="placeCoords">Coordinate (facoltative, da Google Maps)</label><input type="text" id="placeCoords" placeholder="41.902800, 12.496400" style="max-width:220px"></div>
+        <div><label class="field" for="placeCoords">Posizione (facoltativa)</label><input type="text" id="placeCoords" placeholder="41.902800, 12.496400" style="max-width:200px">
+          <button class="btn-small" id="placeMapBtn" type="button">🗺️ Scegli sulla mappa</button></div>
         <div><label class="field" for="placeRadius">Raggio</label>
           <select id="placeRadius"><option value="100">100 m</option><option value="200" selected>200 m</option><option value="500">500 m</option><option value="1000">1 km</option></select></div>
         <button class="primary" id="placeAdd">Aggiungi luogo</button>
       </div>
-      <p class="note">Coordinate: apri Google Maps, fai clic con il tasto destro sul punto esatto, clicca sui numeri che compaiono (si copiano) e incollali qui.</p>
+      <p class="note">Posizione: premi <b>🗺️ Scegli sulla mappa</b>, cerca l'indirizzo e tocca l'ingresso. Senza posizione il cartello è un "QR libero".
+        Dopo la stampa, con il <b>QR di prova</b> controlli sul posto che la zona sia giusta.</p>
       <p id="placeError" class="bad" style="min-height:1.2em"></p>
       <div class="tablewrap"><table id="tPlaces"></table></div>
     </div>
+  </section>
+
+  <section class="card hidden noprint" id="startCard">
+    <h2>🚀 Primi passi</h2>
+    <p class="muted" style="margin:0">Quattro cose da fare una volta sola. Si spuntano da sole.</p>
+    <ol id="startList"></ol>
   </section>
 
   <div class="card hidden noprint" id="folderWarn" style="border:2px solid #f59e0b;background:#fffbeb">
@@ -308,6 +351,20 @@
       <label class="note">Mansione<br><input id="newMansione" list="taskList" autocomplete="off" style="width:170px"></label>
       <button class="primary big" id="newInvite">➕ Crea e invia l'invito</button>
     </div>
+    <label class="note" style="display:block;margin:6px 0"><input type="checkbox" id="newNoPhone"> <b>Senza telefono</b>: niente invito, le sue ore le scrivi tu (qui sotto).</label>
+    <details id="manualBox" style="border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0">
+      <summary style="cursor:pointer;font-weight:700">✍️ Scrivi ore a mano (dipendente senza telefono, telefono rotto…)</summary>
+      <div class="row" style="align-items:flex-end;margin-top:8px">
+        <label class="note">Dipendente<br><select id="manCf" style="min-width:180px"></select></label>
+        <label class="note">Giorno<br><input id="manDate" type="date"></label>
+        <label class="note">Entrata<br><input id="manIn" type="time" value="08:00"></label>
+        <label class="note">Uscita<br><input id="manOut" type="time" value="17:00"></label>
+        <label class="note">Motivo<br><input id="manWhy" placeholder="es. senza telefono" style="width:180px"></label>
+        <button class="primary" id="manAdd">Aggiungi</button>
+      </div>
+      <p class="note">Resta sempre segnato "✍️ scritto dal datore" (anche nel file per il consulente): non è una timbratura del dipendente.</p>
+      <p id="manError" class="bad" style="min-height:1.2em"></p>
+    </details>
     <datalist id="taskList"><option>Operaio Edile</option><option>Capocantiere</option><option>Elettricista</option><option>Termoidraulico</option><option>Impiegato Amministrativo</option><option>Operatore Sanitario</option><option>Manovale</option></datalist>
     <p id="newError" class="bad" style="min-height:1.2em"></p>
     <div class="tablewrap"><table id="tStaff"></table></div>
@@ -317,6 +374,14 @@
     <h2>Ancora nessun report</h2>
     <p class="muted">Quando i dipendenti ti mandano i report, importali da <b>📥 Report</b>: qui comparirà tutto.</p>
     <button class="primary" data-goview="report">📥 Vai ai report</button>
+  </section>
+
+  <section class="card hidden noprint" id="sosCard">
+    <h2>🆘 Foglio di emergenza</h2>
+    <p class="muted">Se un giorno perdi la password, con questo foglio riapri <b>tutti</b> i dati e ne scegli una nuova
+      (i cartelli e i telefoni restano buoni). Stampalo e mettilo in cassaforte: chi ha il foglio può aprire i dati.</p>
+    <p id="sosState"></p>
+    <button class="primary" id="sosBtn">🖨️ Crea e stampa il foglio di emergenza</button>
   </section>
 
   <section class="card hidden noprint" id="rulesCard">
@@ -361,6 +426,20 @@
       <p class="note">"Cambia mansione" e "Non lavora più qui" preparano un messaggio firmato da mandare al telefono del dipendente.</p></div>
   </section>
 
+  <div id="mapBox" class="hidden noprint" role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:50;display:flex;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;padding:14px;width:min(860px,96vw)">
+      <div class="row" style="align-items:center">
+        <input id="mapSearch" placeholder="Cerca l'indirizzo (es. Via Roma 10, Canicattì)" style="flex:1;min-width:200px">
+        <button class="btn-small" id="mapSearchBtn">🔍 Cerca</button>
+      </div>
+      <p class="note" id="mapInfo">Tocca il punto esatto dell'ingresso del cantiere: il cerchio è la zona valida.</p>
+      <div id="mapCanvas" style="height:min(60vh,460px);border-radius:12px;background:#e2e8f0"></div>
+      <div class="row" style="justify-content:flex-end;margin-top:10px">
+        <button id="mapCancel">Annulla</button><button class="primary" id="mapOk" disabled>✓ Usa questo punto</button>
+      </div>
+    </div>
+  </div>
+
   <section id="placeSheet" class="card hidden" style="text-align:center">
     <p class="company" id="placeSheetCompany" style="font-size:22px;font-weight:800;margin:0"></p>
     <p style="font-size:34px;font-weight:800;margin:8px 0">📍 <span id="placeSheetName"></span></p>
@@ -369,6 +448,12 @@
     <p class="note" id="placeSheetGps"></p>
     <p class="reportto hidden" id="placeSheetReportTo"></p>
     <p class="link noprint"><a id="placeSheetLink" target="_blank" rel="noopener"></a></p>
+    <div class="noprint hidden" id="placeTestBox" style="border:2px dashed var(--line);border-radius:14px;padding:12px;margin:12px auto;max-width:520px">
+      <p style="margin:0 0 6px"><b>🔎 QR di PROVA (non stamparlo)</b>: inquadralo <b>sul posto</b> con il telefono (anche senza Cartellino attivo):
+        ti dice se la zona è giusta. Non è una timbratura.</p>
+      <div id="placeTestQr" style="display:inline-block;width:160px;height:160px"></div>
+      <p class="link"><a id="placeTestLink" target="_blank" rel="noopener"></a></p>
+    </div>
     <div class="row noprint" style="justify-content:center">
       <button class="primary" id="placeSheetPrint">🖨️ Stampa</button><button id="placeSheetClose">Chiudi</button>
     </div>
@@ -2863,6 +2948,47 @@ var qrcode = function() {
     return { scalar, publicKeyHex, fingerprint: await fingerprint(publicKeyHex) };
   }
 
+  // ------------------------------------------------------ FOGLIO DI EMERGENZA e NUOVA PASSWORD
+  // La chiave dell'azienda NON cambia mai (è nei telefoni e nei cartelli): si "avvolge" (cifra) con un altro segreto.
+  // - codice di recupero (stampato sul foglio di emergenza): riapre la chiave se la password è persa;
+  // - nuova password scelta dopo il recupero: da quel momento apre la chiave al posto di quella vecchia.
+  const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  /** Codice di recupero: 6 gruppi di 5 caratteri (circa 150 bit), facile da ricopiare (niente 0/O, 1/I). */
+  function newRecoveryCode() {
+    const b = crypto.getRandomValues(new Uint8Array(30));
+    const chars = [...b].map((x) => RECOVERY_ALPHABET[x % 32]).join("");
+    return chars.match(/.{5}/g).join("-");
+  }
+  const normRecovery = (c) => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/O/g, "0").replace(/I/g, "1");
+  async function wrapAesKey(secret, salt) {
+    const base = await subtle.importKey("raw", enc.encode(secret), "PBKDF2", false, ["deriveKey"]);
+    return subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt, iterations: KDF_ITERATIONS }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  /** Avvolge la chiave dell'azienda con un segreto (password nuova o codice di recupero). */
+  async function wrapCompanyKey(companyKey, secret, kind) {
+    const s2 = kind === "recupero" ? normRecovery(secret) : String(secret).normalize("NFC");
+    if (kind !== "recupero") { const e = validatePassword(s2); if (e) throw new Error(e); }
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv }, await wrapAesKey(s2, salt), enc.encode(companyKey.scalar.toString(16).padStart(64, "0"))));
+    return { kind, salt: bytesToHex(salt), iv: bytesToHex(iv), ct: bytesToHex(ct), publicKeyHex: companyKey.publicKeyHex };
+  }
+  /** Riapre la chiave dell'azienda con il segreto giusto, altrimenti errore. */
+  async function unwrapCompanyKey(blob, secret) {
+    if (!blob || !blob.ct) throw new Error("Nessuna chiave salvata.");
+    const s2 = blob.kind === "recupero" ? normRecovery(secret) : String(secret).normalize("NFC");
+    let hex;
+    try {
+      hex = new TextDecoder().decode(await subtle.decrypt({ name: "AES-GCM", iv: hexToBytes(blob.iv) }, await wrapAesKey(s2, hexToBytes(blob.salt)), hexToBytes(blob.ct)));
+    } catch {
+      throw new Error(blob.kind === "recupero" ? "Codice di recupero sbagliato." : "Password sbagliata.");
+    }
+    const scalar = BigInt("0x" + hex);
+    const publicKeyHex = pointToHex(pointMul(scalar, G));
+    if (publicKeyHex !== blob.publicKeyHex) throw new Error("Chiave non valida.");
+    return { scalar, publicKeyHex, fingerprint: await fingerprint(publicKeyHex) };
+  }
+
   /** Chiave AES del report: ECDH (scalare dell'azienda x chiave effimera del telefono) -> HKDF-SHA256. */
   async function reportAesKey(scalar, epkHex) {
     const shared = pointMul(scalar, hexToPoint(epkHex));
@@ -3217,6 +3343,7 @@ var qrcode = function() {
       name: ref.name || cf,
       date: ref.date,
       in: inRec ? inRec.time : "",
+      inTs: inRec ? inRec.timestamp : null,
       out: outRec ? outRec.time : "",
       minutes,
       task: (inRec || outRec).task,
@@ -3250,10 +3377,16 @@ var qrcode = function() {
 
   function normalizeRules(r) {
     const o = Number(r && r.oreGiorno);
+    // ore normali al giorno per singolo dipendente (part-time): { cf: ore }
+    const orePer = {};
+    if (r && r.orePer && typeof r.orePer === "object") {
+      for (const [cf, v] of Object.entries(r.orePer)) { const n = Number(v); if (n > 0 && n <= 24) orePer[cf] = n; }
+    }
     return {
       oreGiorno: o > 0 && o <= 24 ? o : DEFAULT_RULES.oreGiorno,
       sabato: !!(r && r.sabato),
       patrono: r && /^\d\d-\d\d$/.test(r.patrono || "") ? r.patrono : "",
+      orePer,
     };
   }
   /** Domenica di Pasqua (calendario gregoriano): [mese, giorno]. */
@@ -3282,6 +3415,29 @@ var qrcode = function() {
     if (wd === 6 && !r.sabato) return "riposo";
     return "lavorativo";
   }
+  // Ora italiana (con ora legale/solare) di un istante, in minuti dalla mezzanotte
+  const ROME_HM = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const romeMinutes = (ms) => { const [h, m] = ROME_HM.format(new Date(ms)).split(":").map(Number); return h * 60 + m; };
+  /**
+   * Minuti notturni di un turno che inizia nell'istante startIso e dura "minutes" (minuti VERI trascorsi).
+   * Se in mezzo cambia l'ora (ultima domenica di marzo/ottobre) si conta sull'orologio italiano minuto per minuto.
+   */
+  function nightMinutesAt(startIso, minutes) {
+    const t0 = Date.parse(startIso);
+    if (!Number.isFinite(t0) || !(minutes > 0)) return 0;
+    const t1 = t0 + minutes * 60000;
+    const offset = (ms) => (((romeMinutes(ms) - (new Date(ms).getUTCHours() * 60 + new Date(ms).getUTCMinutes())) % 1440) + 1440) % 1440;
+    if (offset(t0) === offset(t1)) {
+      const h = romeMinutes(t0);
+      return nightMinutes(`${String(Math.floor(h / 60)).padStart(2, "0")}:${String(h % 60).padStart(2, "0")}`, minutes);
+    }
+    let n = 0;
+    for (let i = 0; i < minutes; i++) {
+      const m = romeMinutes(t0 + i * 60000);
+      if (m >= NIGHT_FROM || m < NIGHT_TO) n++;
+    }
+    return n;
+  }
   /** Minuti notturni (22:00-06:00) di un turno che inizia alle "HH:MM" e dura "minutes". */
   function nightMinutes(start, minutes) {
     if (!/^\d\d:\d\d$/.test(start || "") || !(minutes > 0)) return 0;
@@ -3305,10 +3461,10 @@ var qrcode = function() {
       if (!out.has(s.cf)) out.set(s.cf, { name: s.name, days: {} });
       const d = (out.get(s.cf).days[s.date] ||= { tot: 0, ord: 0, str: 0, fest: 0, nott: 0 });
       d.tot += s.minutes;
-      d.nott += nightMinutes(s.in, s.minutes);
+      d.nott += s.inTs ? nightMinutesAt(s.inTs, s.minutes) : nightMinutes(s.in, s.minutes);
     }
-    const ordMax = Math.round(r.oreGiorno * 60);
-    for (const p of out.values()) {
+    for (const [cf, p] of out) {
+      const ordMax = Math.round((r.orePer[cf] || r.oreGiorno) * 60);
       for (const [date, d] of Object.entries(p.days)) {
         const kind = dayKind(date, r);
         if (kind === "festivo") d.fest = d.tot;
@@ -3468,7 +3624,8 @@ var qrcode = function() {
     const ct = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv }, await vaultKey(companyKey), enc.encode(JSON.stringify(data))));
     return JSON.stringify({
       format: VAULT_FORMAT, v: 1, savedAt: new Date().toISOString(),
-      azienda: { name: String(company.name || ""), code: String(company.code || ""), color: String(company.color || ""), publicKeyHex: companyKey.publicKeyHex },
+      azienda: { name: String(company.name || ""), code: String(company.code || ""), color: String(company.color || ""), publicKeyHex: companyKey.publicKeyHex,
+        recupero: company.recupero || null, avvolta: company.avvolta || null },
       iv: bytesToHex(iv), ct: bytesToHex(ct),
     });
   }
@@ -3538,6 +3695,23 @@ var qrcode = function() {
     return `${base}invito?m=${signed.m}&f=${signed.f}`;
   }
 
+  /**
+   * QR di PROVA di un luogo (non timbra): il datore o il capocantiere lo inquadra SUL POSTO e il telefono dice
+   * se è dentro la zona giusta. Firmato come gli altri (contiene la chiave pubblica: non serve l'app attivata).
+   */
+  async function createPlaceTest(companyKey, { tenantId, place }) {
+    if (place.tipo === "mezzo" || place.lat == null || place.lng == null) throw new Error("Solo i luoghi con la posizione si possono provare.");
+    return signCompanyData(companyKey, { v: 1, t: tenantId, k: "provaluogo", id: place.id, nome: place.nome, lat: place.lat, lng: place.lng, r: place.r, chiave: companyKey.publicKeyHex });
+  }
+  function placeTestLink(appUrl, signed) {
+    const base = String(appUrl).replace(/\/?$/, "/");
+    return `${base}provaluogo?m=${signed.m}&f=${signed.f}`;
+  }
+  /** Il punto è in Italia? (per avvisare il datore di un errore nelle coordinate) */
+  function inItaly(lat, lng) {
+    return lat >= 35.2 && lat <= 47.2 && lng >= 6.5 && lng <= 18.7;
+  }
+
   function placeLink(appUrl, place) {
     const base = String(appUrl).replace(/\/?$/, "/");
     return `${base}timbra?m=${place.m}&f=${place.f}`;
@@ -3594,7 +3768,7 @@ var qrcode = function() {
       ["Data", "Cognome e nome", "Codice fiscale", "Entrata", "Uscita", "Ore", "Tipo di giorno", "Luogo", "Mansione", "Note"],
       ...shifts.filter((s) => s.date.startsWith(month)).map((s) => [fmt(s.date), s.name, s.cf, s.in, s.out, s.minutes == null ? null : hoursNum(s.minutes),
         dayKind(s.date, r) === "festivo" ? holidayName(s.date, r.patrono) || "Domenica" : dayKind(s.date, r) === "riposo" ? "Sabato (riposo)" : "Lavorativo",
-        s.place || "", s.task || "", s.anomaly || ""]),
+        s.place || "", s.task || "", s.manual ? `Scritto dal datore${s.motivo ? ": " + s.motivo : ""}` : s.anomaly || ""]),
     ];
     const note = [
       ["Cartellino - presenze per il consulente del lavoro"],
@@ -3602,6 +3776,7 @@ var qrcode = function() {
       ["Mese", `${String(mo).padStart(2, "0")}/${y}`],
       ["Creato il", new Date().toLocaleDateString("it-IT")],
       ["Ore ordinarie al giorno", r.oreGiorno],
+      ...Object.entries(r.orePer).filter(([cf]) => summary.some((x) => x.cf === cf)).map(([cf, n]) => [`  di cui ${(summary.find((x) => x.cf === cf) || {}).name || cf}`, `${String(n).replace(".", ",")} ore al giorno (part-time)`]),
       ["Si lavora il sabato", r.sabato ? "sì" : "no (ore del sabato = straordinario)"],
       ["Santo patrono", r.patrono ? `${r.patrono.slice(3)}/${r.patrono.slice(0, 2)}` : "non indicato"],
       ["Come sono calcolate", "Ore in decimali (7,5 = 7 ore e 30 minuti), solo turni completi con firma digitale valida. Domeniche e festivi = ore festive. Notturne = ore tra le 22 e le 6 (già comprese nelle altre colonne)."],
@@ -3696,9 +3871,15 @@ var qrcode = function() {
     checkEmployee,
     createInvite,
     sealVault,
+    newRecoveryCode,
+    wrapCompanyKey,
+    unwrapCompanyKey,
     openVault,
     vaultHeader,
     inviteLink,
+    createPlaceTest,
+    placeTestLink,
+    inItaly,
     pointMul,
     G,
     parseReportFile,
@@ -3713,6 +3894,7 @@ var qrcode = function() {
     holidayName,
     dayKind,
     nightMinutes,
+    nightMinutesAt,
     hoursByDay,
     consultantSheets,
     buildXlsx,
@@ -3735,7 +3917,7 @@ var qrcode = function() {
   const STORE = "cartellino.azienda";
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
-  const AREA_VERSION = "202611200902"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611201413"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -3773,7 +3955,8 @@ var qrcode = function() {
   function show() {
     const c = state.company;
     $("setup").classList.toggle("hidden", !!c);
-    for (const id of ["sheetCard", "report", "resetBox", "places", "rulesCard", "staffCard"]) $(id).classList.toggle("hidden", !c);
+    for (const id of ["sheetCard", "report", "resetBox", "places", "rulesCard", "staffCard", "sosCard"]) $(id).classList.toggle("hidden", !c);
+    if (c) renderSos();
     if (!c) return;
     document.querySelector("header").style.background = "#" + c.color;
     $("sheetCompany").textContent = c.name;
@@ -3876,11 +4059,21 @@ var qrcode = function() {
       const key = await L.deriveCompanyKey(code, pwd);
       if (PENDING.folder) {
         // ripristino da un altro computer: stessa azienda, stessa password
-        if (key.publicKeyHex !== PENDING.folder.header.publicKeyHex) return err("Password sbagliata per questi dati (o codice diverso).");
-        const snap = await L.openVault(key, PENDING.folder.text);
+        let useKey = key, newWrap = null;
+        const sosCode = $("setupSos").value.trim();
+        if (sosCode) {
+          // password persa: si riapre con il foglio di emergenza e la password scritta sopra diventa quella nuova
+          try { useKey = await L.unwrapCompanyKey(PENDING.folder.header.recupero, sosCode); } catch (e2) { return err(e2.message || "Codice di recupero sbagliato."); }
+          newWrap = await L.wrapCompanyKey(useKey, pwd, "password");
+        } else if (key.publicKeyHex !== PENDING.folder.header.publicKeyHex) {
+          useKey = await openWithPassword({ ...PENDING.folder.header, code }, pwd);
+          if (!useKey) return err("Password sbagliata per questi dati (o codice diverso).");
+        }
+        const snap = await L.openVault(useKey, PENDING.folder.text);
         restoreSnapshot(snap);
-        state.company = { ...(snap.company || {}), name, code, color: (snap.company && snap.company.color) || color, publicKeyHex: key.publicKeyHex, fingerprint: key.fingerprint, appUrl: (snap.company && snap.company.appUrl) || appUrl };
-        state.key = key;
+        state.company = { ...(snap.company || {}), name, code, color: (snap.company && snap.company.color) || color, publicKeyHex: useKey.publicKeyHex, fingerprint: useKey.fingerprint, appUrl: (snap.company && snap.company.appUrl) || appUrl };
+        state.key = useKey;
+        if (newWrap) state.company.avvolta = newWrap;
         save(state.company);
         await folderSaveHandle(PENDING.folder.handle);
         PENDING.folder = null;
@@ -3907,7 +4100,7 @@ var qrcode = function() {
     }
   };
 
-  $("printBtn").onclick = () => window.print();
+  $("printBtn").onclick = () => { if (state.company) { state.company.cartelloStampato = new Date().toISOString(); save(state.company); renderStart(); } window.print(); };
   $("resetLink").onclick = (e) => {
     e.preventDefault();
     if (!confirm("Vuoi togliere l'azienda da questo computer? Potrai rimetterla con gli stessi dati e la stessa password.")) return;
@@ -3922,8 +4115,8 @@ var qrcode = function() {
     $("unlockBtn").disabled = true;
     $("unlockBtn").textContent = "Controllo…";
     try {
-      const key = await L.deriveCompanyKey(state.company.code, pwd);
-      if (key.publicKeyHex !== state.company.publicKeyHex) {
+      const key = await openWithPassword(state.company, pwd);
+      if (!key) {
         $("unlockError").textContent = "Password sbagliata.";
         return;
       }
@@ -4114,11 +4307,12 @@ var qrcode = function() {
   }
 
   async function recompute() {
-    document.body.classList.toggle("hasdata", !!state.contents.length);
-    if (!state.contents.length) { $("results").classList.add("hidden"); return; }
+    const any = !!state.contents.length || manuals().length > 0;
+    document.body.classList.toggle("hasdata", any);
+    if (!any) { $("results").classList.add("hidden"); return; }
     state.data = await L.processReports(state.contents);
     filterAuthorized(state.data);
-    state.shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
+    state.shifts = buildAllShifts();
     const months = new Set();
     state.shifts.forEach((s) => months.add(s.date.slice(0, 7)));
     state.data.leaves.forEach((l) => { months.add(l.startDate.slice(0, 7)); months.add(l.endDate.slice(0, 7)); });
@@ -4282,7 +4476,7 @@ var qrcode = function() {
   }
 
   function render() {
-    state.shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
+    state.shifts = buildAllShifts();
     const m = state.month, d = state.data;
     const shifts = state.shifts.filter((s) => s.date.startsWith(m));
     const summary = L.monthlySummary(state.shifts, countedLeaves(), m, rules());
@@ -4318,7 +4512,8 @@ var qrcode = function() {
     table($("tDetail"),
       [{ t: "Data" }, { t: "Dipendente" }, { t: "Entrata" }, { t: "Uscita" }, { t: "Ore", num: 1 }, { t: "Mansione" }, { t: "Luogo" }, { t: "Note" }],
       shifts.map((s) => ({ cls: s.anomaly ? "anom" : "", cells: [fmtDate(s.date), esc(s.name), esc(s.in), esc(s.out), L.formatMinutes(s.minutes), esc(s.task), placeCell(s),
-        s.anomaly ? `<span class="pill warn">${esc(s.anomaly)}</span>` : `<span class="pill ok">firma valida</span>`] })),
+        s.manual ? `<span class="pill warn">✍️ scritto dal datore${s.motivo ? ": " + esc(s.motivo) : ""}</span> <button class="btn-small" data-delman="${esc(s.manualId)}">Togli</button>`
+          : s.anomaly ? `<span class="pill warn">${esc(s.anomaly)}</span>` : `<span class="pill ok">firma valida</span>`] })),
       "Nessun turno in questo mese.");
 
     table($("tLeaves"),
@@ -4466,9 +4661,11 @@ var qrcode = function() {
   });
 
   // ---------------------------------------------------------- foglio per i dipendenti = QR della Sede
+  /** Il controllo posizione vale per QUESTO cartello? (dichiarazione fatta + punto sulla mappa + non spento per questo luogo) */
+  function placeGps(p) { return !!state.company.gps && p.tipo !== "mezzo" && p.lat != null && p.gps !== false; }
   async function signedPlaceLink(p) {
     const signed = await L.createPlace(state.key, { tenantId: state.company.code, id: p.id, nome: p.nome, lat: p.lat, lng: p.lng, r: p.r,
-      gps: !!state.company.gps && p.lat != null, tipo: p.tipo, azienda: state.company });
+      gps: placeGps(p), tipo: p.tipo, azienda: state.company });
     return L.placeLink(state.company.appUrl || appUrl, signed);
   }
   /** La prima volta crea da sola la "Sede" (QR senza coordinate): così il datore ha subito il suo QR. */
@@ -4482,8 +4679,8 @@ var qrcode = function() {
     }
     let changed = false;
     for (const p of list) {
-      if (!p.link || p.gpsAt !== String(!!state.company.gps) || (p.invAt || "false") !== String(!!state.company.soloInvitati)) {
-        p.link = await signedPlaceLink(p); p.gpsAt = String(!!state.company.gps); p.invAt = String(!!state.company.soloInvitati); changed = true;
+      if (!p.link || p.gpsAt !== String(placeGps(p)) || (p.invAt || "false") !== String(!!state.company.soloInvitati)) {
+        p.link = await signedPlaceLink(p); p.gpsAt = String(placeGps(p)); p.invAt = String(!!state.company.soloInvitati); changed = true;
       }
     }
     if (changed || !loadPlaces().length) savePlaces(list);
@@ -4523,8 +4720,11 @@ var qrcode = function() {
       : `<span class="pill ok">GPS spento</span> si registra solo il luogo del QR.`;
     const list = loadPlaces();
     table($("tPlaces"),
-      [{ t: "Luogo" }, { t: "Coordinate" }, { t: "Raggio", num: 1 }, { t: "" }],
+      [{ t: "Luogo" }, { t: "Coordinate" }, { t: "Raggio", num: 1 }, { t: "Controllo" }, { t: "" }],
       list.map((p) => ({ cells: [`${p.tipo === "mezzo" ? "🚚" : "📍"} <b>${esc(p.nome)}</b>`, p.tipo === "mezzo" ? "mezzo in movimento" : p.lat == null ? "senza posizione (solo QR)" : `${p.lat}, ${p.lng}`, p.tipo === "mezzo" || p.lat == null ? "—" : `${p.r} m`,
+        p.tipo === "mezzo" || p.lat == null ? `<span class="note">QR libero</span>`
+          : !state.company.gps ? `<span class="note">QR libero (GPS spento)</span>`
+          : `<button class="btn-small" data-place="gps" data-pid="${esc(p.id)}">${placeGps(p) ? "📍 QR + GPS" : "QR libero"}</button>`,
         `<button class="primary btn-small" data-place="print" data-pid="${esc(p.id)}">🖨️ Stampa QR</button> <button class="btn-small" data-place="del" data-pid="${esc(p.id)}">Elimina</button>`] })),
       "Nessun luogo: aggiungi l'ufficio o il primo cantiere.");
   }
@@ -4559,8 +4759,8 @@ var qrcode = function() {
     const err = (x) => { $("placeError").textContent = x; };
     if (nome.length < 2) return err("Scrivi il nome del luogo.");
     const noCoords = !mezzo && !$("placeCoords").value.trim();
-    if (noCoords && state.company.gps) return err("Con il GPS acceso servono le coordinate del luogo (da Google Maps).");
-    if (!coords && !noCoords) return err("Coordinate non valide: incollale da Google Maps (es. 41.902800, 12.496400).");
+    if (!coords && !noCoords) return err("Coordinate non valide: scegli il punto sulla mappa (o incollale da Google Maps).");
+    if (!mezzo && !noCoords && !L.inItaly(coords.lat, coords.lng) && !confirm("Il punto è FUORI dall'Italia: sicuro che sia giusto?")) return err("Controlla il punto sulla mappa.");
     const list = loadPlaces();
     if (list.some((p) => p.nome.toLowerCase() === nome.toLowerCase())) return err("C'è già un luogo con questo nome.");
     err("");
@@ -4574,6 +4774,71 @@ var qrcode = function() {
     ensureSede().then(renderSheet);
   };
 
+  // ---------------------------------------------------------- MAPPA per scegliere il punto (niente numeri a mano)
+  const MAP = { map: null, marker: null, circle: null, point: null };
+  function loadLeaflet() {
+    if (window.L && window.L.map && window.L !== L) return Promise.resolve(window.L);
+    return new Promise((resolve, reject) => {
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(css);
+      const js = document.createElement("script");
+      js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      js.onload = () => resolve(window.L);
+      js.onerror = () => reject(new Error("Serve internet per la mappa."));
+      document.head.appendChild(js);
+    });
+  }
+  function mapRadius() { return Number($("placeRadius").value) || 200; }
+  function mapSetPoint(lat, lng) {
+    const Lf = MAP.lib;
+    MAP.point = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 };
+    if (!MAP.marker) MAP.marker = Lf.marker([lat, lng]).addTo(MAP.map);
+    else MAP.marker.setLatLng([lat, lng]);
+    if (!MAP.circle) MAP.circle = Lf.circle([lat, lng], { radius: mapRadius(), color: "#16a34a" }).addTo(MAP.map);
+    else MAP.circle.setLatLng([lat, lng]).setRadius(mapRadius());
+    $("mapOk").disabled = false;
+    $("mapInfo").textContent = `Punto: ${MAP.point.lat}, ${MAP.point.lng} · zona di ${mapRadius()} m` + (L.inItaly(lat, lng) ? "" : " · ⚠️ FUORI dall'Italia");
+  }
+  $("placeMapBtn").onclick = async () => {
+    $("mapBox").classList.remove("hidden");
+    try {
+      MAP.lib = await loadLeaflet();
+      if (!MAP.map) {
+        MAP.map = MAP.lib.map("mapCanvas").setView([41.9, 12.5], 6);
+        MAP.lib.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(MAP.map);
+        MAP.map.on("click", (e) => mapSetPoint(e.latlng.lat, e.latlng.lng));
+      }
+      setTimeout(() => MAP.map.invalidateSize(), 50);
+      const cur = L.parseCoordinates($("placeCoords").value);
+      if (cur) { mapSetPoint(cur.lat, cur.lng); MAP.map.setView([cur.lat, cur.lng], 17); }
+    } catch (e) {
+      $("mapInfo").innerHTML = `<span class="bad">${esc(e.message)} In alternativa: in Google Maps tasto destro sul punto, clic sui numeri e incollali qui.</span>`;
+    }
+  };
+  $("mapSearchBtn").onclick = async () => {
+    const q = $("mapSearch").value.trim();
+    if (!q || !MAP.map) return;
+    try {
+      const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&q=" + encodeURIComponent(q));
+      const j = await r.json();
+      if (!j.length) { $("mapInfo").textContent = "Indirizzo non trovato: prova a scriverlo diversamente o sposta la mappa a mano."; return; }
+      const lat = Number(j[0].lat), lng = Number(j[0].lon);
+      MAP.map.setView([lat, lng], 18);
+      mapSetPoint(lat, lng);
+      $("mapInfo").textContent += " — controlla e tocca l'ingresso esatto.";
+    } catch { $("mapInfo").textContent = "Ricerca non riuscita (serve internet)."; }
+  };
+  $("mapSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") $("mapSearchBtn").click(); });
+  $("mapCancel").onclick = () => $("mapBox").classList.add("hidden");
+  $("mapOk").onclick = () => {
+    if (!MAP.point) return;
+    $("placeCoords").value = `${MAP.point.lat}, ${MAP.point.lng}`;
+    $("mapBox").classList.add("hidden");
+  };
+  $("placeRadius").addEventListener("change", () => { if (MAP.circle) { MAP.circle.setRadius(mapRadius()); if (MAP.point) mapSetPoint(MAP.point.lat, MAP.point.lng); } });
+
   async function printPlace(p) {
     const link = await signedPlaceLink(p);
     const qr = qrcode(0, "M");
@@ -4583,9 +4848,19 @@ var qrcode = function() {
     $("placeSheetCompany").textContent = state.company.name;
     $("placeSheetGps").textContent = p.tipo === "mezzo"
       ? "QR del mezzo: chi timbra qui risulta su questo mezzo. Nessuna posizione viene letta."
-      : state.company.gps
+      : placeGps(p)
       ? "Al momento della timbratura il telefono controlla se sei sul posto (salva solo sì/no, mai dove ti trovi)."
       : "";
+    $("placeTestBox").classList.toggle("hidden", p.tipo === "mezzo" || p.lat == null);
+    if (p.tipo !== "mezzo" && p.lat != null) {
+      const tl = L.placeTestLink(state.company.appUrl || appUrl, await L.createPlaceTest(state.key, { tenantId: state.company.code, place: p }));
+      const tq = qrcode(0, "M");
+      tq.addData(tl);
+      tq.make();
+      $("placeTestQr").innerHTML = tq.createSvgTag({ cellSize: 3, margin: 2, scalable: true });
+      $("placeTestLink").textContent = "Link di prova";
+      $("placeTestLink").href = tl;
+    }
     $("placeSheetQr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
     $("placeSheetLink").textContent = link;
     $("placeSheetLink").href = link;
@@ -4605,6 +4880,12 @@ var qrcode = function() {
       if (b.dataset.place === "print") {
         if (!state.key) { showError("Scrivi prima la tua password."); return; }
         await printPlace(p);
+      } else if (b.dataset.place === "gps") {
+        p.gps = p.gps === false;
+        savePlaces(list);
+        await ensureSede();
+        renderSheet();
+        $("placeError").innerHTML = `<span class="warn">Cartello "${esc(p.nome)}": ${placeGps(p) ? "QR + controllo posizione" : "QR libero"}. <b>Ristampalo</b> e sostituisci quello appeso.</span>`;
       } else if (b.dataset.place === "del") {
         if (!confirm(`Eliminare il luogo "${p.nome}"? Il suo QR non sarà più riconosciuto come luogo dell'azienda.`)) return;
         savePlaces(list.filter((x) => x.id !== p.id));
@@ -4707,7 +4988,12 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
   }
   // ---------------------------------------------------------- orario di lavoro e consulente (salvati su questo computer)
   // (funzioni dichiarate: render() le può usare anche prima di arrivare qui)
-  function rules() { return L.normalizeRules(loadJson("cartellino.orario")); }
+  function rules() {
+    // ore normali al giorno della ditta + quelle dei singoli dipendenti part-time
+    const orePer = {};
+    for (const [cf, v] of Object.entries(people())) if (v && Number(v.oreGiorno) > 0) orePer[cf] = Number(v.oreGiorno);
+    return L.normalizeRules({ ...loadJson("cartellino.orario"), orePer });
+  }
   function consultantEmail() { return String(loadJson("cartellino.orario").email || "").trim(); }
   /** Assenze da contare: valide e non rifiutate. */
   function countedLeaves() { const dec = decisions(); return state.data.leaves.filter((l) => l.valid && !(dec[l.id] && dec[l.id].esito === "RIFIUTATA")); }
@@ -4789,6 +5075,98 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
   };
 
+  // ---------------------------------------------------------- PRIMI PASSI (onboarding): si spuntano da soli
+  function startItems() {
+    const c = state.company || {};
+    const anyStaff = Object.values(people()).some((v) => v && v.invito && !v.eliminato);
+    return [
+      { id: "folder", done: !!(FOLDER && FOLDER.ok), t: "📁 Collega la cartella dei dati (mai più dati persi)", b: "Collega" },
+      { id: "sos", done: !!c.recupero, t: "🆘 Stampa il foglio di emergenza (password persa)", b: "Vai" },
+      { id: "sheet", done: !!c.cartelloStampato, t: "🖨️ Stampa il cartello \"TIMBRA QUI\" e appendilo", b: "Vai" },
+      { id: "staff", done: anyStaff, t: "👷 Crea il primo dipendente e mandagli l'invito", b: "Vai" },
+    ];
+  }
+  function startDone() { return startItems().every((x) => x.done); }
+  function renderStart() {
+    if (!$("startCard") || !state.company) return;
+    const items = startItems();
+    $("startCard").classList.toggle("hidden", !state.key || items.every((x) => x.done));
+    $("startList").innerHTML = items.map((x) => `<li class="${x.done ? "done" : ""}" data-start="${x.id}"><span>${x.done ? "✅" : "⬜"}</span><span class="t">${esc(x.t)}</span>${x.done ? "" : `<button class="btn-small primary" data-startgo="${x.id}">${esc(x.b)}</button>`}</li>`).join("");
+  }
+  $("startList").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-startgo]");
+    if (!b) return;
+    const id = b.dataset.startgo;
+    if (id === "folder") return $("folderWarnBtn").onclick();
+    if (id === "sos") { setView("qr"); $("sosCard").scrollIntoView({ behavior: "smooth" }); return; }
+    if (id === "sheet") { setView("qr"); return; }
+    if (id === "staff") { $("staffCard").scrollIntoView({ behavior: "smooth" }); $("newNome").focus(); }
+  });
+
+  // ---------------------------------------------------------- PASSWORD: originale, nuova (dopo il recupero), foglio di emergenza
+  /** Apre la chiave dell'azienda con la password: quella iniziale (calcolata) oppure quella nuova scelta dopo il recupero. */
+  async function openWithPassword(company, pwd) {
+    try {
+      const k = await L.deriveCompanyKey(company.code, pwd);
+      if (k.publicKeyHex === company.publicKeyHex) return k;
+    } catch { /* password troppo facile: può essere solo sbagliata */ }
+    if (company.avvolta) {
+      try { return await L.unwrapCompanyKey(company.avvolta, pwd); } catch { /* sbagliata */ }
+    }
+    return null;
+  }
+  function renderSos() {
+    renderStart();
+    const r = state.company && state.company.recupero;
+    $("sosState").innerHTML = r && r.at
+      ? `<span class="ok">✅ Foglio creato il ${esc(new Date(r.at).toLocaleDateString("it-IT"))}.</span> <span class="note">Se lo perdi, creane uno nuovo: quello vecchio non vale più.</span>`
+      : `<span class="bad">⚠️ Non ancora creato: se perdi la password, i dati non si riaprono.</span>`;
+  }
+  $("sosBtn").onclick = async () => {
+    if (!state.key) { showError("Scrivi prima la password."); return; }
+    if (state.company.recupero && !confirm("Esiste già un foglio di emergenza: crearne uno nuovo rende NON valido quello vecchio. Continuare?")) return;
+    const code = L.newRecoveryCode();
+    window.__cartellinoSos.lastCode = code;
+    state.company.recupero = { ...(await L.wrapCompanyKey(state.key, code, "recupero")), at: new Date().toISOString() };
+    save(state.company);
+    renderSos();
+    const html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Foglio di emergenza - ${esc(state.company.name)}</title>
+<style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:30px;color:#0f172a}h1{margin:0 0 6px}.code{font:700 30px/1.5 Consolas,monospace;letter-spacing:2px;border:3px solid #0f172a;border-radius:14px;padding:18px;text-align:center;margin:22px 0}
+li{margin:6px 0;font-size:16px}.warn{background:#fef3c7;border-radius:10px;padding:10px 14px}</style></head><body>
+<h1>🆘 Cartellino – Foglio di emergenza</h1>
+<p><b>${esc(state.company.name)}</b> · codice cliente <b>${esc(state.company.code)}</b> · creato il ${esc(new Date().toLocaleDateString("it-IT"))}</p>
+<div class="code">${esc(code)}</div>
+<ol><li>Apri Cartellino – Area Azienda.</li><li>Sotto la password tocca <b>"Ho perso la password"</b> (su un computer nuovo: prima "Apri la cartella dei dati").</li>
+<li>Scrivi il codice qui sopra e una <b>nuova password</b>: ritrovi tutto, i cartelli e i telefoni restano buoni.</li></ol>
+<p class="warn">⚠️ Conserva questo foglio in un posto sicuro (cassaforte). Chi ha questo foglio può aprire i dati dei dipendenti.
+Digital Valut non ne ha una copia.</p>
+<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { alert("Codice di emergenza (scrivilo e conservalo):\n\n" + code); return; }
+    w.document.write(html);
+    w.document.close();
+  };
+  window.__cartellinoSos = { lastCode: null }; // usato dai test automatici
+  $("lostBtn").onclick = async () => {
+    const e = (t) => { $("lostError").textContent = t; };
+    const code = $("lostCode").value, pwd = $("lostPwd").value;
+    if (!state.company.recupero) return e("Su questo computer non c'è il foglio di emergenza: apri prima la cartella dei dati.");
+    const pErr = L.validatePassword(pwd);
+    if (pErr) return e(pErr);
+    if (pwd !== $("lostPwd2").value) return e("Le due password non sono uguali.");
+    e("Controllo…");
+    try {
+      const key = await L.unwrapCompanyKey(state.company.recupero, code);
+      state.company.avvolta = await L.wrapCompanyKey(key, pwd, "password");
+      save(state.company);
+      state.key = key;
+      for (const id of ["lostCode", "lostPwd", "lostPwd2"]) $(id).value = "";
+      e("");
+      alert("Fatto: da adesso usa la NUOVA password. Scrivila sul foglio.");
+      unlocked();
+    } catch (err) { e(err.message || "Errore"); }
+  };
+
   // ---------------------------------------------------------- CARTELLA DEI DATI (mai più dati persi)
   // Tutto si salva da solo, cifrato con la password, nella cartella scelta dal datore (Desktop, Drive, chiavetta).
   var FOLDER = { handle: null, ok: false, savedAt: null, timer: null, needPermission: false, error: "" };
@@ -4825,7 +5203,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     try { const fh = await dir.getFileHandle(name); return await (await fh.getFile()).text(); } catch { return null; }
   }
   function snapshot() {
-    return { company: state.company, luoghi: loadPlaces(), decisioni: decisions(), dipendenti: people(), dainviare: outbox(), orario: loadJson("cartellino.orario") };
+    return { company: state.company, luoghi: loadPlaces(), decisioni: decisions(), dipendenti: people(), dainviare: outbox(), orario: loadJson("cartellino.orario"), manuali: manuals() };
   }
   const rawSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* il browser non salva */ } };
   /** Computer nuovo: tutto com'era nella cartella. */
@@ -4835,6 +5213,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     rawSet(PEOPLE_STORE, snap.dipendenti || {});
     rawSet(OUT_STORE, snap.dainviare || {});
     rawSet("cartellino.orario", snap.orario || {});
+    rawSet("cartellino.manuali", Array.isArray(snap.manuali) ? snap.manuali : []);
   }
   /** Stesso computer: si unisce quello che è stato fatto altrove, senza perdere niente di quello che c'è qui. */
   function mergeSnapshot(snap) {
@@ -4860,6 +5239,9 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     for (const [k, v] of Object.entries(snap.dainviare || {})) if (!out[k]) out[k] = v;
     rawSet(OUT_STORE, out);
     if (!Object.keys(loadJson("cartellino.orario")).length && snap.orario) rawSet("cartellino.orario", snap.orario);
+    const man = manuals();
+    for (const m of Array.isArray(snap.manuali) ? snap.manuali : []) if (!man.some((x) => x.id === m.id)) man.push(m);
+    rawSet("cartellino.manuali", man);
     if (snap.company && state.company) {
       for (const k of ["soloInvitati", "gps", "soloQr"]) if (snap.company[k] && !state.company[k]) state.company[k] = snap.company[k];
       try { localStorage.setItem(STORE, JSON.stringify(state.company)); } catch { /* il browser non salva */ }
@@ -4935,7 +5317,8 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     if (!el || !state.company) return;
     $("folderCard").classList.remove("hidden");
     $("folderReconnect").classList.toggle("hidden", !FOLDER.needPermission);
-    const showWarn = !!state.key && !FOLDER.ok;
+    const showWarn = !!state.key && !FOLDER.ok && startDone();
+    renderStart();
     $("folderWarn").classList.toggle("hidden", !showWarn);
     if (!canFolder) el.innerHTML = `<span class="bad">Per la cartella dei dati apri Cartellino con <b>Microsoft Edge</b> o <b>Google Chrome</b>.</span>`;
     else if (FOLDER.error) el.innerHTML = `<span class="bad">${esc(FOLDER.error)}</span>`;
@@ -4966,6 +5349,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     if (head.color) { color = head.color; document.querySelectorAll(".swatch").forEach((sw) => sw.classList.toggle("sel", sw.dataset.c === head.color)); }
     $("setupError").textContent = "";
     $("setupFolderInfo").textContent = `✅ Trovati i dati di ${head.name} (${head.code}). Scrivi la TUA password (due volte) e premi "Prepara tutto".`;
+    $("setupSosBox").classList.toggle("hidden", !head.recupero);
   }
   $("setupFromFolder").onclick = async () => setupFromFolder(await pickFolder());
   window.__cartellinoFolder = {
@@ -5002,15 +5386,65 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     const rows = Object.entries(pe).filter(([, v]) => v.invito && !v.eliminato)
       .sort(([, a], [, b]) => (a.invito.cognome + a.invito.nome).localeCompare(b.invito.cognome + b.invito.nome, "it"));
     table($("tStaff"),
-      [{ t: "Dipendente" }, { t: "Mansione" }, { t: "Stato" }, { t: "" }],
+      [{ t: "Dipendente" }, { t: "Mansione" }, { t: "Ore al giorno" }, { t: "Stato" }, { t: "" }],
       rows.map(([cf, v]) => ({ cells: [
         `<b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b><br><span class="note">${esc(cf)}</span>`,
         esc(v.mansione || v.invito.mansione),
-        v.uscito ? `<span class="pill bad">Non lavora più qui</span>` : active.has(cf) ? `<span class="pill ok">✅ Attivo</span>` : `<span class="pill warn">⏳ Invito mandato</span>`,
-        `<button class="btn-small" data-staff="resend" data-cf="${esc(cf)}">📨 Rimanda invito</button> <button class="btn-small" data-staff="delete" data-cf="${esc(cf)}">🗑 Elimina</button>`,
+        `<input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px" title="Vuoto = come la ditta. Part-time: scrivi le sue ore.">`,
+        v.uscito ? `<span class="pill bad">Non lavora più qui</span>` : v.senzaTelefono ? `<span class="pill warn">📝 Senza telefono</span>` : active.has(cf) ? `<span class="pill ok">✅ Attivo</span>` : `<span class="pill warn">⏳ Invito mandato</span>`,
+        (v.senzaTelefono ? "" : `<button class="btn-small" data-staff="resend" data-cf="${esc(cf)}">📨 Rimanda invito</button> `) + `<button class="btn-small" data-staff="delete" data-cf="${esc(cf)}">🗑 Elimina</button>`,
       ] })),
       "Nessun dipendente: crea il primo qui sopra.");
+    renderStart();
+    const sel = $("manCf"), cur = sel.value;
+    sel.innerHTML = rows.filter(([, v]) => !v.uscito).map(([cf, v]) => `<option value="${esc(cf)}">${esc(v.invito.cognome)} ${esc(v.invito.nome)}</option>`).join("");
+    if (cur) sel.value = cur;
+    if (!$("manDate").value) $("manDate").value = ymd(new Date());
   }
+  // ---------------------------------------------------------- ore scritte dal DATORE (sempre segnate, mai confuse con le timbrature)
+  const MAN_STORE = "cartellino.manuali";
+  function manuals() { try { const v = JSON.parse(localStorage.getItem(MAN_STORE) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
+  function buildAllShifts() {
+    const shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
+    const pe = people();
+    for (const m of manuals()) {
+      const v = pe[m.cf] || {};
+      if (v.eliminato) continue;
+      const [h1, m1] = m.in.split(":").map(Number), [h2, m2] = m.out.split(":").map(Number);
+      let minutes = h2 * 60 + m2 - (h1 * 60 + m1);
+      if (minutes <= 0) minutes += 1440; // turno di notte
+      const name = v.invito ? `${v.invito.cognome} ${v.invito.nome}` : (state.data.names.get(m.cf) || m.cf);
+      shifts.push({ cf: m.cf, name, date: m.date, in: m.in, out: m.out, minutes, task: v.mansione || (v.invito && v.invito.mansione) || "", place: "", placeTipo: "", placeIds: [], anomaly: null, manual: true, manualId: m.id, motivo: m.motivo || "" });
+      if (!state.data.names.has(m.cf)) state.data.names.set(m.cf, name);
+    }
+    return shifts.sort((x, y) => (x.date + x.name).localeCompare(y.date + y.name));
+  }
+  $("manAdd").onclick = async () => {
+    const e = (t) => { $("manError").textContent = t; };
+    const cf = $("manCf").value, date = $("manDate").value, tin = $("manIn").value, tout = $("manOut").value, motivo = $("manWhy").value.replace(/\s+/g, " ").trim().slice(0, 80);
+    if (!cf) return e("Prima crea il dipendente.");
+    if (!/^\d{4}-\d\d-\d\d$/.test(date)) return e("Scegli il giorno.");
+    if (date > ymd(new Date())) return e("Il giorno non può essere nel futuro.");
+    if (!/^\d\d:\d\d$/.test(tin) || !/^\d\d:\d\d$/.test(tout) || tin === tout) return e("Scrivi entrata e uscita (es. 08:00 e 17:00).");
+    if (!motivo) return e("Scrivi il motivo (es. senza telefono, telefono rotto).");
+    e("");
+    const b = new Uint8Array(8);
+    crypto.getRandomValues(b);
+    const list = manuals();
+    list.push({ id: L.bytesToHex(b), cf, date, in: tin, out: tout, motivo, at: new Date().toISOString() });
+    saveJson(MAN_STORE, list);
+    $("manWhy").value = "";
+    $("manError").innerHTML = `<span class="ok">✓ Aggiunto (${esc(date.split("-").reverse().join("/"))} ${esc(tin)}–${esc(tout)}).</span>`;
+    await recompute();
+  };
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-delman]");
+    if (!b) return;
+    if (!confirm("Togliere queste ore scritte a mano?")) return;
+    saveJson(MAN_STORE, manuals().filter((m) => m.id !== b.dataset.delman));
+    await recompute();
+  });
+
   async function sendInvite(cf) {
     const v = people()[cf];
     if (!v || !v.invito) return;
@@ -5025,17 +5459,30 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     if (err) { $("newError").textContent = err; return; }
     if (!state.key) { $("newError").textContent = "Scrivi prima la password (riquadro in alto)."; return; }
     $("newError").textContent = "";
+    const noPhone = $("newNoPhone").checked;
     const pe = people();
     const prev = pe[data.cf] || {};
     pe[data.cf] = { ...prev, eliminato: false, uscito: prev.eliminato ? null : prev.uscito,
+      senzaTelefono: noPhone,
       invito: { at: new Date().toISOString(), nome: L.normalizeName(data.nome), cognome: L.normalizeName(data.cognome), mansione: data.mansione.replace(/\s+/g, " ").trim() } };
     if (!prev.mansione) delete pe[data.cf].mansione;
     saveJson(PEOPLE_STORE, pe);
     for (const id of ["newNome", "newCognome", "newCf", "newMansione"]) $(id).value = "";
+    $("newNoPhone").checked = false;
     renderStaff();
-    await sendInvite(data.cf);
+    if (noPhone) { $("manualBox").open = true; $("manCf").value = data.cf; }
+    else await sendInvite(data.cf);
     if (state.contents.length) await recompute();
   };
+  $("tStaff").addEventListener("change", async (e) => {
+    const inp = e.target.closest("[data-ore]");
+    if (!inp) return;
+    const pe = people(), cf = inp.dataset.ore;
+    const n = Number(String(inp.value).replace(",", "."));
+    pe[cf] = { ...(pe[cf] || {}), oreGiorno: n > 0 && n <= 24 ? n : null };
+    saveJson(PEOPLE_STORE, pe);
+    if (state.data) safeRender();
+  });
   $("tStaff").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-staff]");
     if (!b) return;
