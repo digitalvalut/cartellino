@@ -132,7 +132,13 @@
   body[data-view="qr"] #sheetCard, body[data-view="qr"] #places, body[data-view="qr"] #resetBox, body[data-view="qr"] #rulesCard, body[data-view="qr"] #sosCard { display: block !important; }
   body[data-view] #sosCard, body[data-view] #autoCard { display: none !important; }
   body[data-view="qr"] #sosCard, body[data-view="qr"] #autoCard { display: block !important; }
-  body[data-view]:not([data-view="oggi"]) #autoNews { display: none !important; }
+  body[data-view]:not([data-view="oggi"]) #autoNews, body[data-view]:not([data-view="oggi"]) #todayCard { display: none !important; }
+  #todayList { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
+  #todayList li { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 16px; }
+  #todayList li .who { flex: 1; font-weight: 700; }
+  #todayList li.in { background: #f0fdf4; border-color: #bbf7d0; }
+  #todayList li.none { background: #fffbeb; border-color: #fde68a; }
+  #todayCount { font-size: 15px; color: var(--ink2); margin: 4px 0 0; }
   #autoNews ul { margin: 6px 0 0; padding-left: 20px; }
   #results .stats { display: none !important; }
   body[data-view="oggi"] #monthBar { display: none !important; }
@@ -320,6 +326,13 @@
       <p id="placeError" class="bad" style="min-height:1.2em"></p>
       <div class="tablewrap"><table id="tPlaces"></table></div>
     </div>
+  </section>
+
+  <section class="card hidden noprint" id="todayCard">
+    <h2 id="todayTitle">📋 Oggi</h2>
+    <p id="todayCount"></p>
+    <ul id="todayList"></ul>
+    <p class="note" id="todayNote" style="margin:8px 0 0"></p>
   </section>
 
   <section class="card hidden noprint" id="autoNews" style="border-color:#86efac;background:#f0fdf4">
@@ -3964,7 +3977,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611231005"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611231330"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4376,6 +4389,7 @@ var qrcode = function() {
     $("month").innerHTML = sorted.map((m) => `<option value="${m}" ${m === state.month ? "selected" : ""}>${monthLabel(m)}</option>`).join("");
     $("results").classList.remove("hidden");
     safeRender();
+    renderToday();
   }
   function safeRender() {
     try { render(); } catch { showError("Non riesco a mostrare la tabella per questo mese. Prova a scegliere un altro mese o a ricaricare la pagina."); }
@@ -5137,6 +5151,64 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
   };
 
+  // ---------------------------------------------------------- OGGI: chi c'è e chi no (a colpo d'occhio)
+  const LEAVE_WORD = { FERIE: "in ferie", MALATTIA: "in malattia", PERMESSO_SINDACALE_LEGGE_300_70: "in permesso sindacale" };
+  function romeToday() {
+    try { return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(new Date()); } catch { return ymd(new Date()); }
+  }
+  function renderToday() {
+    const card = $("todayCard");
+    if (!card || !state.company || !state.key) { if (card) card.classList.add("hidden"); return; }
+    const today = romeToday();
+    const pe = people();
+    const d = state.data;
+    const dec = decisions();
+    // dipendenti: quelli creati dal datore (non usciti/eliminati/tolti) + chi ha mandato dati
+    const staff = new Map();
+    for (const [cf, v] of Object.entries(pe)) {
+      if (!v || v.eliminato || v.uscito || v.nascosto) continue;
+      const name = v.invito ? `${v.invito.cognome} ${v.invito.nome}` : (d && d.names.get(cf)) || cf;
+      staff.set(cf, { name, noPhone: !!v.senzaTelefono });
+    }
+    if (d) for (const [cf, name] of d.names) if (!staff.has(cf) && !(pe[cf] && (pe[cf].eliminato || pe[cf].uscito || pe[cf].nascosto))) staff.set(cf, { name, noPhone: false });
+    if (!staff.size) { card.classList.add("hidden"); return; }
+    const rows = [];
+    let nIn = 0, nOut = 0, nNone = 0, nAway = 0;
+    for (const [cf, who] of staff) {
+      const punches = d ? d.attendances.filter((a) => a.cf === cf && a.valid && a.date === today).sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))) : [];
+      const manual = manuals().filter((m) => m.cf === cf && m.date === today);
+      const leave = d ? d.leaves.find((l) => l.cf === cf && l.valid && l.startDate <= today && l.endDate >= today && !(dec[l.id] && dec[l.id].esito === "RIFIUTATA")) : null;
+      let icon, text, cls, order;
+      if (punches.length) {
+        const last = punches[punches.length - 1];
+        const first = punches.find((p) => p.type === "ENTRATA") || punches[0];
+        const where = last.place && last.place.nome ? ` · ${esc(last.place.nome)}` : "";
+        if (last.type === "ENTRATA") { icon = "🟢"; text = `al lavoro dalle <b>${esc(first.time)}</b>${where}`; cls = "in"; order = 0; nIn++; }
+        else { icon = "🔴"; text = `uscito alle <b>${esc(last.time)}</b>${first.type === "ENTRATA" ? ` (entrato alle ${esc(first.time)})` : ""}${where}`; cls = "out"; order = 2; nOut++; }
+      } else if (manual.length) {
+        icon = "✍️"; text = `ore scritte da te: ${esc(manual[0].in)}–${esc(manual[0].out)}`; cls = "out"; order = 2; nOut++;
+      } else if (leave) {
+        const pending = !dec[leave.id];
+        icon = leave.type === "MALATTIA" ? "🤒" : "🏖️"; text = `${LEAVE_WORD[leave.type] || "assente"}${pending ? " (richiesta da decidere)" : ""}`; cls = "away"; order = 3; nAway++;
+      } else if (who.noPhone) {
+        icon = "📝"; text = "senza telefono: scrivi tu le sue ore"; cls = "none"; order = 1; nNone++;
+      } else {
+        icon = "⚪"; text = "<b>non ha ancora timbrato</b>"; cls = "none"; order = 1; nNone++;
+      }
+      rows.push({ order, name: who.name, html: `<li class="${cls}"><span>${icon}</span><span class="who">${esc(who.name)}</span><span>${text}</span></li>` });
+    }
+    rows.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+    const [y, m, g] = today.split("-");
+    $("todayTitle").textContent = `📋 Oggi, ${new Date(+y, +m - 1, +g).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}`;
+    $("todayCount").innerHTML = [nIn && `🟢 <b>${nIn}</b> al lavoro`, nOut && `🔴 <b>${nOut}</b> ${nOut === 1 ? "uscito" : "usciti"}`, nNone && `⚪ <b>${nNone}</b> ${nNone === 1 ? "non ha timbrato" : "non hanno timbrato"}`, nAway && `🏖️ <b>${nAway}</b> ${nAway === 1 ? "assente" : "assenti"}`].filter(Boolean).join(" · ");
+    $("todayList").innerHTML = rows.map((r) => r.html).join("");
+    $("todayNote").innerHTML = state.company.cassetta
+      ? `📬 Si aggiorna da solo ogni minuto.${AUTO.lastAt ? " Ultimo aggiornamento: " + esc(new Date(AUTO.lastAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })) + "." : ""}`
+      : `Si aggiorna quando arrivano i report. Per vederlo <b>in tempo reale</b> accendi "📬 Ricevi tutto in automatico" in Impostazioni.`;
+    card.classList.remove("hidden");
+  }
+  window.__cartellinoToday = () => renderToday(); // test automatici
+
   // ---------------------------------------------------------- avviso breve in basso
   function toast(text) {
     let t = document.getElementById("toast");
@@ -5281,11 +5353,12 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
       }
     }
     renderAuto();
+    renderToday();
   }
   function autoStart() {
     renderAuto();
     if (AUTO.timer) clearInterval(AUTO.timer);
-    AUTO.timer = setInterval(() => { void autoPoll(); }, 60000);
+    AUTO.timer = setInterval(() => { void autoPoll().then(renderToday); }, 60000);
     void autoPoll();
   }
   window.__cartellinoAuto = { poll: () => autoPoll(), info: () => ({ ...AUTO, on: !!(state.company && state.company.cassetta) }) }; // test automatici
@@ -5615,6 +5688,7 @@ Digital Valut non ne ha una copia.</p>
       ] })),
       "Nessun dipendente: crea il primo qui sopra.");
     renderStart();
+    renderToday();
     const sel = $("manCf"), cur = sel.value;
     sel.innerHTML = rows.filter(([, v]) => !v.uscito).map(([cf, v]) => `<option value="${esc(cf)}">${esc(v.invito.cognome)} ${esc(v.invito.nome)}</option>`).join("");
     if (cur) sel.value = cur;
