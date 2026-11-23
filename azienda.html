@@ -123,9 +123,37 @@
   #nav button { border: none; background: none; border-radius: 10px; padding: 10px 14px; font-size: 15px; color: var(--ink2); }
   #nav button.active { background: var(--brand); color: #fff; }
   #nav .badge { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 12px; margin-left: 4px; }
+  /* ---- aspetto 24/11/2026: piu' composto ---- */
+  header { padding: 12px 24px !important; }
+  header h1 { font-size: 20px !important; }
+  header p { display: none; }
+  #nav button { font-weight: 700; }
+  #sheetCard .sheethead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  #sheetCard .sheethead h2 { margin: 0; }
+  body[data-view="qr"] main { display: flex; flex-direction: column; }
+  body[data-view="qr"] #sheetCard { order: 1; } body[data-view="qr"] #autoCard { order: 2; } body[data-view="qr"] #places { order: 3; }
+  body[data-view="qr"] #rulesCard { order: 4; } body[data-view="qr"] #sosCard { order: 5; } body[data-view="qr"] #reportLinkCard { order: 6; }
+  body[data-view="qr"] #resetBox { order: 7; } body[data-view="qr"] main > footer, body[data-view="qr"] main > .madeby { order: 9; }
+  #sheetCard .printrow { display: none; }
+  @media screen { #sheetCard .sheet { zoom: .3; border: 1px solid var(--line); border-radius: 20px; padding: 18px; margin: 12px auto 0; max-width: 900px; } }
+  #sendMore { margin-top: 8px; }
+  .sec-note { font-size: 14px; color: var(--ink2); margin: 0 0 10px; }
+  #personCard .ptop { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  #personCard .avatar { width: 54px; height: 54px; border-radius: 50%; background: var(--brand); color: #fff; font: 800 20px/54px system-ui, sans-serif; text-align: center; flex: none; }
+  #personCard .pname { font-size: 24px; font-weight: 800; margin: 0; }
+  #personCard .ptoday { font-size: 17px; border-radius: 12px; padding: 10px 14px; margin: 14px 0; border: 1px solid var(--line); }
+  #personCard .ptoday.in { background: #f0fdf4; border-color: #bbf7d0; } #personCard .ptoday.none { background: #fffbeb; border-color: #fde68a; }
+  #personCard .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 8px 0 16px; }
+  #personCard .tile { border: 1px solid var(--line); border-radius: 14px; padding: 12px; text-align: center; }
+  #personCard .tile b { display: block; font-size: 24px; } #personCard .tile span { font-size: 13px; color: var(--ink2); }
+  #personCard h3 { margin: 18px 0 8px; font-size: 17px; }
+  #personCard .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  a[data-person] { color: inherit; text-decoration: none; border-bottom: 1px dashed var(--ink3); cursor: pointer; }
+  body[data-view]:not([data-view="dipendenti"]) #personCard { display: none !important; }
+  body.person-open[data-view="dipendenti"] #staffCard { display: none !important; }
   /* una pagina alla volta */
   body[data-view] #sheetCard, body[data-view] #places, body[data-view] #report, body[data-view] #results, body[data-view] #resetBox, body[data-view] #emptyHint, body[data-view] #rulesCard, body[data-view] #staffCard { display: none !important; }
-  body[data-view="oggi"] #staffCard { display: block !important; }
+  body[data-view="dipendenti"] #staffCard { display: block !important; }
   body[data-view] #folderCard { display: none !important; }
   body[data-view="report"] #folderCard { display: block !important; }
   body[data-view]:not([data-view="oggi"]) #folderWarn, body[data-view]:not([data-view="oggi"]) #startCard { display: none !important; }
@@ -142,16 +170,17 @@
   #autoNews ul { margin: 6px 0 0; padding-left: 20px; }
   #results .stats { display: none !important; }
   body[data-view="oggi"] #monthBar { display: none !important; }
-  body[data-view="oggi"] #results .panel[data-panel="people"] { display: block !important; }
+
   button.big { font-size: 18px; padding: 14px 22px; border-radius: 14px; }
   body[data-view="report"] #report { display: block !important; }
-  body.hasdata[data-view="oggi"] #results, body.hasdata[data-view="dipendenti"] #results, body.hasdata[data-view="mese"] #results { display: block !important; }
-  body:not(.hasdata)[data-view="oggi"] #emptyHint, body:not(.hasdata)[data-view="dipendenti"] #emptyHint, body:not(.hasdata)[data-view="mese"] #emptyHint { display: block !important; }
+  body.hasdata[data-view="oggi"] #results, body.hasdata[data-view="mese"] #results { display: block !important; }
+  body:not(.hasdata)[data-view="mese"] #emptyHint { display: block !important; }
+  body[data-view="qr"] #reportLinkCard { display: block !important; }
   body[data-view="oggi"] #results .tabs, body[data-view="dipendenti"] #results .tabs, body[data-view="dipendenti"] #results .stats { display: none !important; }
   body[data-view="oggi"] #results .panel { display: none !important; }
   body[data-view="oggi"] #results .panel[data-panel="dash"] { display: block !important; }
   body[data-view="dipendenti"] #results .panel { display: none !important; }
-  body[data-view="dipendenti"] #results .panel[data-panel="people"] { display: block !important; }
+
   body[data-view="mese"] #results .panel[data-panel="dash"], body[data-view="mese"] #results .panel[data-panel="people"],
   body[data-view="mese"] .tabs button[data-tab="dash"], body[data-view="mese"] .tabs button[data-tab="people"] { display: none !important; }
   .outbox { border: 2px solid #86efac; background: #f0fdf4; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
@@ -177,8 +206,8 @@
 </header>
 <nav id="nav" class="hidden noprint" aria-label="Menù">
   <button data-view="oggi">🏠 Oggi<span class="badge hidden" id="badgeOggi"></span></button>
+  <button data-view="dipendenti">👷 Dipendenti</button>
   <button data-view="mese">📅 Mese</button>
-  <button data-view="report">📥 Report</button>
   <button data-view="qr">⚙️ Impostazioni</button>
 </nav>
 <main>
@@ -224,6 +253,10 @@
 
   <!-- FOGLIO PER I DIPENDENTI -->
   <section class="card hidden" id="sheetCard">
+    <div class="sheethead noprint">
+      <div><h2>🖨️ Il cartello "TIMBRA QUI"</h2><p class="sec-note" style="margin:4px 0 0">Stampalo e appendilo all'ingresso: i dipendenti lo inquadrano con Cartellino.</p></div>
+      <button class="primary" id="printBtnTop" type="button">🖨️ Stampa il cartello</button>
+    </div>
     <div class="sheet" id="sheet">
       <p class="company" id="sheetCompany"></p>
       <p class="big-title">📷 TIMBRA QUI</p>
@@ -241,13 +274,14 @@
       <div class="madeby"><img src="data:image/png;base64,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" alt=""><span>Cartellino · realizzato da <b>Associazione Digital Valut</b></span></div>
       <p class="link noprint">Sul computer, per provare: <a id="activationLink" target="_blank" rel="noopener"></a></p>
     </div>
-    <div class="row noprint" style="justify-content:center;margin-top:12px">
-      <button class="primary" id="printBtn">🖨️ Stampa il foglio per i dipendenti</button>
+    <div class="row noprint printrow" style="justify-content:center;margin-top:12px">
+      <button id="printBtn">🖨️ Stampa il cartello</button>
     </div>
   </section>
 
   <!-- REPORT DEL MESE -->
   <section class="card hidden" id="report">
+    <p class="noprint" style="margin:0 0 8px"><a href="#" data-goview="qr">‹ Torna alle Impostazioni</a></p>
     <h2>I report dei dipendenti</h2>
     <div id="unlockBox">
       <p class="muted">Scrivi la tua password per aprire i report.</p>
@@ -293,11 +327,9 @@
 
   <section class="card hidden noprint" id="places">
     <h2>📍 Luoghi di lavoro</h2>
-    <p class="muted">Crea un QR per l'ufficio, per ogni cantiere o postazione e per ogni <b>mezzo</b> (camion, autobus, furgone) e appendilo all'ingresso o a bordo. Il dipendente lo inquadra con
-      Cartellino ("📷 Inquadra il QR del luogo") e timbra lì. I QR sono firmati con la tua password: nessuno li può falsificare.</p>
+    <p class="sec-note">Un cartello per ogni sede, cantiere o mezzo. Nessuno lo può falsificare.</p>
     <div id="placesLocked" class="note">Scrivi prima la tua password nel riquadro "I report dei dipendenti".</div>
     <div id="placesBox" class="hidden">
-      <p class="note" style="margin:6px 0">I dipendenti timbrano <b>solo</b> inquadrando uno di questi QR. Il primo QR inquadrato attiva anche l'app.</p>
       <label class="note" style="display:block;margin:6px 0"><input type="checkbox" id="optInvitati">
         <b>Solo dipendenti invitati</b> (consigliato): il cartello serve solo a timbrare; nessuno può registrarsi da solo.</label>
       <label class="note" style="display:block;margin:6px 0"><input type="checkbox" id="optGps">
@@ -390,26 +422,36 @@
     <div class="tablewrap"><table id="tStaff"></table></div>
   </section>
 
+  <section class="card hidden noprint" id="personCard">
+    <p style="margin:0 0 10px"><a href="#" id="personBack">‹ Tutti i dipendenti</a></p>
+    <div id="personBody"></div>
+  </section>
+
   <section class="card noprint" id="emptyHint" style="text-align:center">
     <h2>Ancora nessun report</h2>
     <p class="muted">Quando i dipendenti ti mandano i report, importali da <b>📥 Report</b>: qui comparirà tutto.</p>
     <button class="primary" data-goview="report">📥 Vai ai report</button>
   </section>
 
+  <section class="card noprint" id="reportLinkCard" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <div><h2 style="margin:0">📥 Report a mano, cartella dei dati e copie</h2>
+        <p class="sec-note" style="margin:4px 0 0">Serve solo se NON usi "Ricevi tutto in automatico", o per una copia di sicurezza.</p></div>
+      <button data-goview="report">Apri</button>
+    </div>
+  </section>
+
   <section class="card hidden noprint" id="autoCard">
     <h2>📬 Ricevi timbrature e richieste in automatico</h2>
-    <p class="muted">Se la accendi, i telefoni dei dipendenti mandano <b>da soli</b> timbrature, ferie e permessi subito dopo averli
-      fatti: tu li ritrovi qui quando apri Cartellino (ogni giorno, ogni settimana o a fine mese, come vuoi) e, se è aperto,
-      ti compare un avviso. Niente più report da chiedere a fine mese. Passano da una "cassetta postale" su internet
-      <b>chiusi a chiave</b>: nessuno li può leggere, solo tu con la tua password.</p>
+    <p class="sec-note">Timbrature e richieste arrivano <b>da sole</b>, e le tue risposte arrivano da sole ai dipendenti. Niente report, niente WhatsApp.
+      Viaggiano <b>chiusi a chiave</b>: li apri solo tu.</p>
     <label class="note" style="display:block;font-size:16px"><input type="checkbox" id="optAuto"> <b>Ricevi in automatico</b></label>
     <p id="autoState" class="note" style="min-height:1.2em"></p>
   </section>
 
   <section class="card hidden noprint" id="sosCard">
     <h2>🆘 Foglio di emergenza</h2>
-    <p class="muted">Se un giorno perdi la password, con questo foglio riapri <b>tutti</b> i dati e ne scegli una nuova
-      (i cartelli e i telefoni restano buoni). Stampalo e mettilo in cassaforte: chi ha il foglio può aprire i dati.</p>
+    <p class="sec-note">Serve se perdi la password: con il foglio riapri tutto. Stampalo e mettilo in cassaforte.</p>
     <p id="sosState"></p>
     <button class="primary" id="sosBtn">🖨️ Crea e stampa il foglio di emergenza</button>
   </section>
@@ -493,15 +535,17 @@
     <div class="card">
       <h2 id="sendTitle">Messaggio per il dipendente</h2>
       <p class="muted" id="sendText"></p>
-      <p class="note">Mandalo al dipendente: lo tocca (o lo incolla in Cartellino → 📩 Messaggio dall'azienda) e il suo telefono si aggiorna.
-      Il messaggio è firmato con la tua password: nessuno lo può falsificare.</p>
       <div class="row" style="margin:10px 0">
-        <button class="primary" id="sendCopy">📋 Copia il messaggio</button>
-        <button id="sendWa">WhatsApp</button>
+        <button class="primary" id="sendWa">💬 WhatsApp</button>
+        <button id="sendMail">✉️ Email</button>
+        <button id="sendCopy">📋 Copia</button>
         <button id="sendClose">Chiudi</button>
       </div>
-      <div style="text-align:center"><div id="sendQr"></div><p class="note">Se è in ufficio: lo inquadra con Cartellino → "Inquadra il QR".</p></div>
-      <p id="sendLink"></p>
+      <p class="note" style="margin:0"><a href="#" id="sendMoreBtn">Mostra il QR (se è qui in ufficio)</a></p>
+      <div id="sendMore" class="hidden">
+        <div style="text-align:center"><div id="sendQr"></div><p class="note">Lo inquadra con Cartellino → "Inquadra il QR".</p></div>
+        <p id="sendLink" class="note" style="word-break:break-all"></p>
+      </div>
     </div>
   </div>
 
@@ -3977,7 +4021,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611231423"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611231451"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4052,7 +4096,7 @@ var qrcode = function() {
         set("bad", `⛔ <b>Licenza ${scad && today > scad ? "scaduta il " + fmtDate(scad) : "non attiva"}</b>: i telefoni dei dipendenti sono bloccati. Contatta Digital Valut per rinnovarla.`);
         return;
       }
-      if (!scad) { set("ok", "✓ <b>Licenza attiva</b>."); return; }
+      if (!scad) { box.classList.add("hidden"); return; } // tutto a posto: niente scritta in piu'
       const daysLeft = Math.round((Date.UTC(+scad.slice(0, 4), +scad.slice(5, 7) - 1, +scad.slice(8, 10)) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
       if (e.prova) {
         set(daysLeft <= 7 ? "warn" : "ok", `🎁 <b>Prova gratuita</b> fino al ${fmtDate(scad)}: mancano <b>${daysLeft} ${daysLeft === 1 ? "giorno" : "giorni"}</b>. Per continuare dopo la prova firma il contratto con Digital Valut.`);
@@ -4060,7 +4104,7 @@ var qrcode = function() {
       }
       const days = Math.round((Date.UTC(+scad.slice(0, 4), +scad.slice(5, 7) - 1, +scad.slice(8, 10)) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
       if (days <= 30) set("warn", `⚠️ <b>La licenza scade il ${fmtDate(scad)}</b> (tra ${days} ${days === 1 ? "giorno" : "giorni"}). Contatta Digital Valut per rinnovarla: dopo quella data i telefoni si bloccano.`);
-      else set("ok", `✓ <b>Licenza attiva fino al ${fmtDate(scad)}</b>.`);
+      else box.classList.add("hidden");
     } catch {
       box.classList.add("hidden"); // senza internet non si può verificare: nessun avviso
     }
@@ -4082,6 +4126,7 @@ var qrcode = function() {
 
   // ---------------------------------------------------------- menù: una pagina alla volta
   function setView(v) {
+    if (document.body.classList.contains("person-open") && v !== "dipendenti") { document.body.classList.remove("person-open"); state.personCf = null; }
     document.body.dataset.view = v;
     document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
     if (v === "mese") {
@@ -4090,7 +4135,7 @@ var qrcode = function() {
     }
     window.scrollTo(0, 0);
   }
-  document.querySelectorAll("#nav button").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
+  document.querySelectorAll("#nav button").forEach((b) => (b.onclick = () => { if (b.dataset.view === "dipendenti" && state.personCf) closePerson(); setView(b.dataset.view); }));
   document.addEventListener("click", (e) => { const g = e.target.closest("[data-goview]"); if (g) setView(g.dataset.goview); });
 
   // ---------------------------------------------------------- prima volta
@@ -4161,6 +4206,7 @@ var qrcode = function() {
     }
   };
 
+  $("printBtnTop").onclick = () => $("printBtn").click();
   $("printBtn").onclick = () => { if (state.company) { state.company.cartelloStampato = new Date().toISOString(); save(state.company); renderStart(); } window.print(); };
   $("resetLink").onclick = (e) => {
     e.preventDefault();
@@ -4392,6 +4438,8 @@ var qrcode = function() {
     renderToday();
   }
   function safeRender() {
+    try { renderStaff(); } catch { /* niente */ }
+    try { renderPerson(); } catch { /* niente */ }
     try { render(); } catch { showError("Non riesco a mostrare la tabella per questo mese. Prova a scegliere un altro mese o a ricaricare la pagina."); }
   }
   $("month").onchange = () => { state.month = $("month").value; safeRender(); };
@@ -4627,7 +4675,8 @@ var qrcode = function() {
     qr.addData(link);
     qr.make();
     $("sendQr").innerHTML = qr.createSvgTag({ cellSize: 3, margin: 2, scalable: true });
-    $("sendCopy").textContent = "📋 Copia il messaggio";
+    $("sendCopy").textContent = "📋 Copia";
+    $("sendMore").classList.add("hidden");
     $("sendBox").classList.remove("hidden");
   }
   $("sendClose").onclick = () => $("sendBox").classList.add("hidden");
@@ -4641,6 +4690,8 @@ var qrcode = function() {
       : "Messaggio da " + state.company.name + " per Cartellino: " + sendCurrent;
   }
   $("sendWa").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(sendText()), "_blank", "noopener");
+  $("sendMail").onclick = () => { location.href = "mailto:?subject=" + encodeURIComponent("Cartellino - " + state.company.name) + "&body=" + encodeURIComponent(sendText()); };
+  $("sendMoreBtn").onclick = (e) => { e.preventDefault(); $("sendMore").classList.toggle("hidden"); };
 
   // Risposte raccolte: si inviano tutte insieme, un solo messaggio per dipendente
   const OUT_STORE = "cartellino.dainviare";
@@ -4691,11 +4742,12 @@ var qrcode = function() {
 
   document.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-act]");
-    if (!b || !state.data) return;
+    if (!b) return;
     clearError();
     try {
       const { act, id, cf } = b.dataset;
-      const who = state.data.names.get(cf) || cf;
+      const pv = people()[cf];
+      const who = (state.data && state.data.names.get(cf)) || (pv && pv.invito ? `${pv.invito.cognome} ${pv.invito.nome}` : cf);
       if (act === "corr-ok" || act === "corr-no") {
         const dd = decisions();
         dd[id] = { esito: act === "corr-ok" ? "ACCETTATA" : "RIFIUTATA", at: new Date().toISOString() };
@@ -5156,10 +5208,103 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
   };
 
+  // ---------------------------------------------------------- CARTELLA DEL DIPENDENTE: tutto di una persona, in un posto
+  function personName(cf) {
+    const v = people()[cf];
+    if (v && v.invito) return `${v.invito.cognome} ${v.invito.nome}`;
+    return (state.data && state.data.names.get(cf)) || cf;
+  }
+  function openPerson(cf) {
+    state.personCf = cf;
+    if (document.body.dataset.view !== "dipendenti") setView("dipendenti");
+    document.body.classList.add("person-open");
+    renderPerson();
+    window.scrollTo(0, 0);
+  }
+  function closePerson() {
+    state.personCf = null;
+    document.body.classList.remove("person-open");
+    $("personCard").classList.add("hidden");
+  }
+  $("personBack").onclick = (e) => { e.preventDefault(); closePerson(); };
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-person]");
+    if (!a) return;
+    e.preventDefault();
+    openPerson(a.dataset.person);
+  });
+  function renderPerson() {
+    const cf = state.personCf;
+    if (!cf || !state.company) return;
+    const v = people()[cf] || {};
+    const name = personName(cf);
+    const d = state.data;
+    const st = personToday(cf, !!v.senzaTelefono);
+    const month = romeToday().slice(0, 7);
+    const sum = d ? (L.monthlySummary(state.shifts.filter((x) => x.cf === cf), countedLeaves().filter((l) => l.cf === cf), month, rules())[0] || null) : null;
+    const shifts = (state.shifts || []).filter((x) => x.cf === cf).sort((a, b) => (b.date + (b.in || "")).localeCompare(a.date + (a.in || ""))).slice(0, 15);
+    const leaves = d ? d.leaves.filter((l) => l.cf === cf).sort((a, b) => String(b.startDate).localeCompare(String(a.startDate))) : [];
+    const ids = `data-cf="${esc(cf)}"`;
+    const task = v.mansione || (v.invito && v.invito.mansione) || "";
+    const statePill = v.uscito ? `<span class="pill bad">Uscito il ${esc(new Date(v.uscito).toLocaleDateString("it-IT"))}</span>`
+      : v.senzaTelefono ? `<span class="pill warn">📝 Senza telefono</span>`
+      : d && d.lastReport.has(cf) ? `<span class="pill ok">✅ Attivo</span>` : `<span class="pill warn">⏳ Invito mandato</span>`;
+    const tile = (val, label) => `<div class="tile"><b>${val}</b><span>${label}</span></div>`;
+    const fm = (m) => L.formatMinutes(m || 0);
+    $("personBody").innerHTML = `
+      <div class="ptop"><div class="avatar">${esc(initials(name))}</div>
+        <div style="flex:1"><p class="pname">${esc(name)}</p><div class="note">${esc(cf)}${task ? " · " + esc(task) : ""} · ${statePill}</div></div></div>
+      <div class="ptoday ${st.cls}">${st.icon} <b>Oggi:</b> ${st.text}</div>
+      <h3>📅 Questo mese</h3>
+      <div class="tiles">
+        ${tile(fm(sum && sum.minutes), "ore lavorate")}
+        ${tile(sum ? sum.days : 0, "giorni")}
+        ${tile(fm(sum && sum.str), "straordinari")}
+        ${tile(sum && sum.ferie ? sum.ferie : 0, "giorni di ferie")}
+        ${tile(sum && sum.malattia ? sum.malattia : 0, "giorni di malattia")}
+      </div>
+      <h3>🗓️ Richieste</h3>
+      ${leaves.length ? `<div class="tablewrap"><table><tbody>${leaves.map((l) => `<tr><td><b>${esc(LEAVE_LABEL[l.type] || l.type)}</b></td><td>dal ${esc(fmtDate(l.startDate))} al ${esc(fmtDate(l.endDate))}</td><td>${decisionCell(l)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="note">Nessuna richiesta.</p>`}
+      <h3>🕐 Ultime timbrature</h3>
+      ${shifts.length ? `<div class="tablewrap"><table><thead><tr><th>Giorno</th><th>Entrata</th><th>Uscita</th><th>Ore</th><th>Luogo</th><th></th></tr></thead><tbody>${shifts.map((x) => `<tr class="${x.anomaly ? "anom" : ""}"><td>${esc(fmtDate(x.date))}</td><td>${esc(x.in || "—")}</td><td>${esc(x.out || "—")}</td><td>${x.minutes != null ? fm(x.minutes) : ""}</td><td>${esc(x.place || "")}</td><td>${x.manual ? `<span class="pill warn">✍️ scritto da te</span>` : x.anomaly ? `<span class="pill warn">${esc(x.anomaly)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<p class="note">Nessuna timbratura ancora.</p>`}
+      <h3>⚙️ Azioni</h3>
+      <div class="acts">
+        ${!v.senzaTelefono && !v.uscito && v.invito ? `<button class="btn-small" data-staff="resend" ${ids}>📨 Rimanda invito</button>` : ""}
+        ${!v.uscito ? `<button class="btn-small" data-act="task" ${ids}>✏️ Cambia mansione</button>` : ""}
+        ${!v.uscito ? `<button class="btn-small" data-act="left" ${ids}>🚪 Non lavora più qui</button>` : ""}
+        <label class="note">Ore al giorno <input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px"></label>
+      </div>`;
+    $("personCard").classList.remove("hidden");
+  }
+  window.__cartellinoPerson = (cf) => openPerson(cf); // test automatici
+
   // ---------------------------------------------------------- OGGI: chi c'è e chi no (a colpo d'occhio)
   const LEAVE_WORD = { FERIE: "in ferie", MALATTIA: "in malattia", PERMESSO_SINDACALE_LEGGE_300_70: "in permesso sindacale" };
   function romeToday() {
     try { return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(new Date()); } catch { return ymd(new Date()); }
+  }
+  /** Oggi, per una persona: { icon, text, cls, order, kind } (stessa regola ovunque). */
+  function personToday(cf, noPhone) {
+    const today = romeToday();
+    const d = state.data;
+    const dec = decisions();
+    const punches = d ? d.attendances.filter((a) => a.cf === cf && a.valid && a.date === today).sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))) : [];
+    const manual = manuals().filter((m) => m.cf === cf && m.date === today);
+    const leave = d ? d.leaves.find((l) => l.cf === cf && l.valid && l.startDate <= today && l.endDate >= today && !(dec[l.id] && dec[l.id].esito === "RIFIUTATA")) : null;
+    if (punches.length) {
+      const last = punches[punches.length - 1];
+      const first = punches.find((p) => p.type === "ENTRATA") || punches[0];
+      const where = last.place && last.place.nome ? ` · ${esc(last.place.nome)}` : "";
+      if (last.type === "ENTRATA") return { icon: "🟢", text: `al lavoro dalle <b>${esc(first.time)}</b>${where}`, cls: "in", order: 0, kind: "in" };
+      return { icon: "🔴", text: `uscito alle <b>${esc(last.time)}</b>${first.type === "ENTRATA" ? ` (entrato alle ${esc(first.time)})` : ""}${where}`, cls: "out", order: 2, kind: "out" };
+    }
+    if (manual.length) return { icon: "✍️", text: `ore scritte da te: ${esc(manual[0].in)}–${esc(manual[0].out)}`, cls: "out", order: 2, kind: "out" };
+    if (leave) {
+      const pending = !dec[leave.id];
+      return { icon: leave.type === "MALATTIA" ? "🤒" : "🏖️", text: `${LEAVE_WORD[leave.type] || "assente"}${pending ? " (richiesta da decidere)" : ""}`, cls: "away", order: 3, kind: "away" };
+    }
+    if (noPhone) return { icon: "📝", text: "senza telefono: scrivi tu le sue ore", cls: "none", order: 1, kind: "none" };
+    return { icon: "⚪", text: "<b>non ha ancora timbrato</b>", cls: "none", order: 1, kind: "none" };
   }
   function renderToday() {
     const card = $("todayCard");
@@ -5180,27 +5325,9 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     const rows = [];
     let nIn = 0, nOut = 0, nNone = 0, nAway = 0;
     for (const [cf, who] of staff) {
-      const punches = d ? d.attendances.filter((a) => a.cf === cf && a.valid && a.date === today).sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))) : [];
-      const manual = manuals().filter((m) => m.cf === cf && m.date === today);
-      const leave = d ? d.leaves.find((l) => l.cf === cf && l.valid && l.startDate <= today && l.endDate >= today && !(dec[l.id] && dec[l.id].esito === "RIFIUTATA")) : null;
-      let icon, text, cls, order;
-      if (punches.length) {
-        const last = punches[punches.length - 1];
-        const first = punches.find((p) => p.type === "ENTRATA") || punches[0];
-        const where = last.place && last.place.nome ? ` · ${esc(last.place.nome)}` : "";
-        if (last.type === "ENTRATA") { icon = "🟢"; text = `al lavoro dalle <b>${esc(first.time)}</b>${where}`; cls = "in"; order = 0; nIn++; }
-        else { icon = "🔴"; text = `uscito alle <b>${esc(last.time)}</b>${first.type === "ENTRATA" ? ` (entrato alle ${esc(first.time)})` : ""}${where}`; cls = "out"; order = 2; nOut++; }
-      } else if (manual.length) {
-        icon = "✍️"; text = `ore scritte da te: ${esc(manual[0].in)}–${esc(manual[0].out)}`; cls = "out"; order = 2; nOut++;
-      } else if (leave) {
-        const pending = !dec[leave.id];
-        icon = leave.type === "MALATTIA" ? "🤒" : "🏖️"; text = `${LEAVE_WORD[leave.type] || "assente"}${pending ? " (richiesta da decidere)" : ""}`; cls = "away"; order = 3; nAway++;
-      } else if (who.noPhone) {
-        icon = "📝"; text = "senza telefono: scrivi tu le sue ore"; cls = "none"; order = 1; nNone++;
-      } else {
-        icon = "⚪"; text = "<b>non ha ancora timbrato</b>"; cls = "none"; order = 1; nNone++;
-      }
-      rows.push({ order, name: who.name, html: `<li class="${cls}"><span>${icon}</span><span class="who">${esc(who.name)}</span><span>${text}</span></li>` });
+      const st = personToday(cf, who.noPhone);
+      if (st.kind === "in") nIn++; else if (st.kind === "out") nOut++; else if (st.kind === "away") nAway++; else nNone++;
+      rows.push({ order: st.order, name: who.name, html: `<li class="${st.cls}"><span>${st.icon}</span><span class="who"><a href="#" data-person="${esc(cf)}">${esc(who.name)}</a></span><span>${st.text}</span></li>` });
     }
     rows.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
     const [y, m, g] = today.split("-");
@@ -5213,6 +5340,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     card.classList.remove("hidden");
   }
   window.__cartellinoToday = () => renderToday(); // test automatici
+  window.__cartellinoView = (v) => setView(v); // test automatici
 
   // ---------------------------------------------------------- avviso breve in basso
   function toast(text) {
@@ -5682,15 +5810,34 @@ Digital Valut non ne ha una copia.</p>
     const active = new Set(state.data ? [...state.data.lastReport.keys()] : []);
     const rows = Object.entries(pe).filter(([, v]) => v.invito && !v.eliminato)
       .sort(([, a], [, b]) => (a.invito.cognome + a.invito.nome).localeCompare(b.invito.cognome + b.invito.nome, "it"));
+    // anche chi si è registrato da solo (vecchie aziende senza inviti) compare qui
+    const extra = state.data ? [...state.data.names.entries()].filter(([cf]) => !(pe[cf] && pe[cf].invito)).map(([cf, name]) => [cf, { ...(pe[cf] || {}), invito: { cognome: name, nome: "", mansione: "" }, selfReg: true }]) : [];
+    const all = rows.concat(extra);
     table($("tStaff"),
       [{ t: "Dipendente" }, { t: "Mansione" }, { t: "Ore al giorno" }, { t: "Stato" }, { t: "" }],
-      rows.map(([cf, v]) => ({ cells: [
-        `<b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b><br><span class="note">${esc(cf)}</span>`,
-        esc(v.mansione || v.invito.mansione),
-        `<input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px" title="Vuoto = come la ditta. Part-time: scrivi le sue ore.">`,
-        v.uscito ? `<span class="pill bad">Non lavora più qui</span>` : v.senzaTelefono ? `<span class="pill warn">📝 Senza telefono</span>` : active.has(cf) ? `<span class="pill ok">✅ Attivo</span>` : `<span class="pill warn">⏳ Invito mandato</span>`,
-        (v.senzaTelefono ? "" : `<button class="btn-small" data-staff="resend" data-cf="${esc(cf)}">📨 Rimanda invito</button> `) + `<button class="btn-small" data-staff="delete" data-cf="${esc(cf)}">🗑 Elimina</button>`,
-      ] })),
+      all.map(([cf, v]) => {
+        const ids = `data-cf="${esc(cf)}"`;
+        const last = state.data && state.data.lastReport.get(cf);
+        const stato = v.nascosto ? `<span class="pill warn">Tolto dall'elenco</span>`
+          : v.uscito ? `<span class="pill bad">Uscito il ${esc(new Date(v.uscito).toLocaleDateString("it-IT"))}</span>`
+          : v.senzaTelefono ? `<span class="pill warn">📝 Senza telefono</span>`
+          : active.has(cf) ? `<span class="pill ok">✅ Attivo</span>${last ? `<br><span class="note">ultimo invio ${esc(fmtDateTime(last))}</span>` : ""}`
+          : `<span class="pill warn">⏳ Invito mandato</span>`;
+        const btns = [
+          !v.senzaTelefono && !v.uscito && !v.selfReg ? `<button class="btn-small" data-staff="resend" ${ids}>📨 Rimanda invito</button>` : "",
+          !v.uscito ? `<button class="btn-small" data-act="task" ${ids}>✏️ Mansione</button>` : "",
+          !v.uscito ? `<button class="btn-small" data-act="left" ${ids}>🚪 Non lavora più qui</button>` : "",
+          v.nascosto ? `<button class="btn-small" data-act="unhide" ${ids}>Rimetti nell'elenco</button>` : v.uscito || v.selfReg ? `<button class="btn-small" data-act="hide" ${ids}>Togli dall'elenco</button>` : "",
+          !v.selfReg ? `<button class="btn-small" data-staff="delete" ${ids}>🗑 Elimina</button>` : "",
+        ].filter(Boolean).join(" ");
+        return { cls: v.uscito || v.nascosto ? "invalid" : "", cells: [
+          `<a href="#" data-person="${esc(cf)}"><b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b></a><br><span class="note">${esc(cf)}</span>`,
+          esc(v.mansione || v.invito.mansione || (state.data ? [...state.data.attendances].reverse().find((a) => a.cf === cf && a.task)?.task || "" : "")) + (v.mansioneAt ? ` <span class="pill warn">cambiata</span>` : ""),
+          `<input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px" title="Vuoto = come la ditta. Part-time: scrivi le sue ore (es. 4).">`,
+          stato,
+          btns,
+        ] };
+      }),
       "Nessun dipendente: crea il primo qui sopra.");
     renderStart();
     renderToday();
