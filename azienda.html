@@ -3977,7 +3977,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611231330"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611231423"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4632,10 +4632,15 @@ var qrcode = function() {
   }
   $("sendClose").onclick = () => $("sendBox").classList.add("hidden");
   $("sendCopy").onclick = async () => {
-    try { await navigator.clipboard.writeText(sendCurrent); $("sendCopy").textContent = "✓ Copiato"; }
+    try { await navigator.clipboard.writeText(sendText()); $("sendCopy").textContent = "✓ Copiato"; }
     catch { $("sendCopy").textContent = "Selezionalo qui sotto e copialo"; }
   };
-  $("sendWa").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent("Messaggio da " + state.company.name + " per Cartellino: " + sendCurrent), "_blank", "noopener");
+  function sendText() {
+    return /\/invito\?/.test(sendCurrent)
+      ? `Ciao! Questo è il tuo invito per Cartellino (presenze) di ${state.company.name}.\n1) Tocca il link qui sotto.\n2) Se non hai l'app: tocca "Installa Cartellino", installala e aprila: si attiva da sola.\n${sendCurrent}`
+      : "Messaggio da " + state.company.name + " per Cartellino: " + sendCurrent;
+  }
+  $("sendWa").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(sendText()), "_blank", "noopener");
 
   // Risposte raccolte: si inviano tutte insieme, un solo messaggio per dipendente
   const OUT_STORE = "cartellino.dainviare";
