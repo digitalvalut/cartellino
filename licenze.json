@@ -2,11 +2,6 @@
   "clienti": {
     "DEMO": {
       "stato": "attivo"
-    },
-    "CENTRO2026": {
-      "stato": "attivo",
-      "scadenza": "2026-12-19",
-      "prova": true
     }
   }
 }
