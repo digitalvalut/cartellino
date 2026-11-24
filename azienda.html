@@ -166,6 +166,7 @@
   #todayList li .who { flex: 1; font-weight: 700; }
   #todayList li.in { background: #f0fdf4; border-color: #bbf7d0; }
   #todayList li.none { background: #fffbeb; border-color: #fde68a; }
+  #todayList li.late { background: #fef2f2; border-color: #fecaca; }
   #todayCount { font-size: 15px; color: var(--ink2); margin: 4px 0 0; }
   #autoNews ul { margin: 6px 0 0; padding-left: 20px; }
   #results .stats { display: none !important; }
@@ -464,6 +465,7 @@
     <h2>🏢 Dati della ditta</h2>
     <p class="sec-note">L'orario si sceglie per ogni dipendente, sotto il suo nome (pagina Dipendenti).</p>
       <div class="row" style="margin-top:10px;align-items:flex-end">
+        <label class="note">Avvisami se qualcuno non ha timbrato entro le<br><input id="ruleAlert" type="time" style="width:120px"></label>
         <label class="note">Festa del patrono (gg/mm)<br><input id="rulePatrono" placeholder="es. 29/06" style="width:110px"></label>
         <label class="note">Email del consulente (per mandargli il file)<br><input id="ruleEmail" type="email" placeholder="nome@esempio.it" style="width:260px"></label>
         <label class="note" id="ruleReportEmailBox">Email dove i dipendenti mandano il report<br><input id="ruleReportEmail" type="email" placeholder="cartellini.ditta@gmail.com" style="width:260px"></label>
@@ -4033,7 +4035,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611241645"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611241659"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -5143,6 +5145,8 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     }
     return L.normalizeRules({ ...loadJson("cartellino.orario"), orePer, sabatoPer });
   }
+  /** Ora dell'avviso "non ha timbrato" ("HH:MM"), "" = spento. */
+  function alertTime() { const a = String(loadJson("cartellino.orario").alert || ""); return /^\d\d:\d\d$/.test(a) ? a : ""; }
   function consultantEmail() { return String(loadJson("cartellino.orario").email || "").trim(); }
   /** Assenze da contare: valide e non rifiutate. */
   function countedLeaves() { const dec = decisions(); return state.data.leaves.filter((l) => l.valid && !(dec[l.id] && dec[l.id].esito === "RIFIUTATA")); }
@@ -5151,6 +5155,7 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     $("ruleOre").value = String(r.oreGiorno);
     $("ruleSabato").checked = r.sabato;
     $("rulePatrono").value = r.patrono ? `${r.patrono.slice(3)}/${r.patrono.slice(0, 2)}` : "";
+    $("ruleAlert").value = alertTime();
     $("ruleEmail").value = consultantEmail();
     $("ruleReportEmail").value = reportEmail();
   }
@@ -5170,12 +5175,14 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     const email = $("ruleEmail").value.trim(), repMail = $("ruleReportEmail").value.trim();
     $("ruleEmailError").textContent = !okMail(email) ? "⚠️ Scrivi un'email vera del consulente (es. nome@gmail.com)." : !okMail(repMail) ? "⚠️ L'email per i report non è un'email vera." : "";
     if (!okMail(email) || !okMail(repMail)) return;
-    saveJson("cartellino.orario", { oreGiorno: Number(String($("ruleOre").value).replace(",", ".")), sabato: $("ruleSabato").checked, patrono, email, reportEmail: repMail });
+    const alert = /^\d\d:\d\d$/.test($("ruleAlert").value) ? $("ruleAlert").value : "";
+    saveJson("cartellino.orario", { oreGiorno: Number(String($("ruleOre").value).replace(",", ".")), sabato: $("ruleSabato").checked, patrono, email, reportEmail: repMail, alert });
+    renderToday();
     fillRules();
     showReportEmail();
     if (state.data) render();
   }
-  for (const id of ["ruleOre", "ruleSabato", "rulePatrono", "ruleEmail", "ruleReportEmail"]) $(id).onchange = saveRules;
+  for (const id of ["ruleOre", "ruleSabato", "rulePatrono", "ruleEmail", "ruleReportEmail", "ruleAlert"]) $(id).onchange = saveRules;
   fillRules();
   showReportEmail();
 
@@ -5301,6 +5308,9 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
 
   // ---------------------------------------------------------- OGGI: chi c'è e chi no (a colpo d'occhio)
   const LEAVE_WORD = { FERIE: "in ferie", MALATTIA: "in malattia", PERMESSO_SINDACALE_LEGGE_300_70: "in permesso sindacale" };
+  function romeNowHM() {
+    try { return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()); } catch { return new Date().toTimeString().slice(0, 5); }
+  }
   function romeToday() {
     try { return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(new Date()); } catch { return ymd(new Date()); }
   }
@@ -5325,7 +5335,27 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
       return { icon: leave.type === "MALATTIA" ? "🤒" : "🏖️", text: `${LEAVE_WORD[leave.type] || "assente"}${pending ? " (richiesta da decidere)" : ""}`, cls: "away", order: 3, kind: "away" };
     }
     if (noPhone) return { icon: "📝", text: "senza telefono: scrivi tu le sue ore", cls: "none", order: 1, kind: "none" };
+    const al = alertTime();
+    if (al && romeNowHM() >= al && L.dayKind(today, rules(), cf) === "lavorativo") {
+      return { icon: "⚠️", text: `<b>non ha timbrato</b> (avviso delle ${esc(al)})`, cls: "late", order: -1, kind: "late" };
+    }
     return { icon: "⚪", text: "<b>non ha ancora timbrato</b>", cls: "none", order: 1, kind: "none" };
+  }
+  /** Avviso "non ha timbrato": una sola volta al giorno per persona (riquadro verde in Oggi + notifica del computer). */
+  function lateAlert(today, lateNames) {
+    if (!lateNames.length) return;
+    const key = "cartellino.avvisi." + today;
+    let done = [];
+    try { done = JSON.parse(localStorage.getItem(key) || "[]"); } catch { done = []; }
+    const fresh = lateNames.filter(([cf]) => !done.includes(cf));
+    if (!fresh.length) return;
+    try { localStorage.setItem(key, JSON.stringify(done.concat(fresh.map(([cf]) => cf)))); } catch { /* niente */ }
+    const items = fresh.map(([cf, name]) => `⚠️ <b>${esc(name)}</b> non ha ancora timbrato (sono le ${esc(alertTime())})`);
+    $("autoNewsList").innerHTML = items.map((n) => `<li>${n}</li>`).join("") + $("autoNewsList").innerHTML;
+    $("autoNews").classList.remove("hidden");
+    if (window.Notification && Notification.permission === "granted" && document.hidden) {
+      try { new Notification("Cartellino", { body: items.map((n) => n.replace(/<[^>]+>/g, "")).join("\n") }); } catch { /* niente */ }
+    }
   }
   function renderToday() {
     const card = $("todayCard");
@@ -5344,16 +5374,18 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     if (d) for (const [cf, name] of d.names) if (!staff.has(cf) && !(pe[cf] && (pe[cf].eliminato || pe[cf].uscito || pe[cf].nascosto))) staff.set(cf, { name, noPhone: false });
     if (!staff.size) { card.classList.add("hidden"); return; }
     const rows = [];
-    let nIn = 0, nOut = 0, nNone = 0, nAway = 0;
+    let nIn = 0, nOut = 0, nNone = 0, nAway = 0, nLate = 0;
+    const lateNames = [];
     for (const [cf, who] of staff) {
       const st = personToday(cf, who.noPhone);
-      if (st.kind === "in") nIn++; else if (st.kind === "out") nOut++; else if (st.kind === "away") nAway++; else nNone++;
+      if (st.kind === "in") nIn++; else if (st.kind === "out") nOut++; else if (st.kind === "away") nAway++; else if (st.kind === "late") { nLate++; lateNames.push([cf, who.name]); } else nNone++;
       rows.push({ order: st.order, name: who.name, html: `<li class="${st.cls}"><span>${st.icon}</span><span class="who"><a href="#" data-person="${esc(cf)}">${esc(who.name)}</a></span><span>${st.text}</span></li>` });
     }
     rows.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
     const [y, m, g] = today.split("-");
     $("todayTitle").textContent = `📋 Oggi, ${new Date(+y, +m - 1, +g).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}`;
-    $("todayCount").innerHTML = [nIn && `🟢 <b>${nIn}</b> al lavoro`, nOut && `🔴 <b>${nOut}</b> ${nOut === 1 ? "uscito" : "usciti"}`, nNone && `⚪ <b>${nNone}</b> ${nNone === 1 ? "non ha timbrato" : "non hanno timbrato"}`, nAway && `🏖️ <b>${nAway}</b> ${nAway === 1 ? "assente" : "assenti"}`].filter(Boolean).join(" · ");
+    lateAlert(today, lateNames);
+    $("todayCount").innerHTML = [nLate && `⚠️ <b>${nLate}</b> ${nLate === 1 ? "in ritardo" : "in ritardo"}`, nIn && `🟢 <b>${nIn}</b> al lavoro`, nOut && `🔴 <b>${nOut}</b> ${nOut === 1 ? "uscito" : "usciti"}`, nNone && `⚪ <b>${nNone}</b> ${nNone === 1 ? "non ha timbrato" : "non hanno timbrato"}`, nAway && `🏖️ <b>${nAway}</b> ${nAway === 1 ? "assente" : "assenti"}`].filter(Boolean).join(" · ");
     $("todayList").innerHTML = rows.map((r) => r.html).join("");
     $("todayNote").innerHTML = state.company.cassetta
       ? `📬 Si aggiorna da solo ogni minuto.${AUTO.lastAt ? " Ultimo aggiornamento: " + esc(new Date(AUTO.lastAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })) + "." : ""}`
