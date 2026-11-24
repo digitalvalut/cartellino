@@ -403,7 +403,11 @@
       <label class="note">Mansione<br><input id="newMansione" list="taskList" autocomplete="off" style="width:170px"></label>
       <button class="primary big" id="newInvite">➕ Crea e invia l'invito</button>
     </div>
-    <label class="note" style="display:block;margin:6px 0"><input type="checkbox" id="newNoPhone"> <b>Senza telefono</b>: niente invito, le sue ore le scrivi tu (qui sotto).</label>
+    <div class="row" style="margin:6px 0;gap:18px">
+      <label class="note">Ore al giorno <input id="newOre" type="number" min="1" max="24" step="0.5" placeholder="8" style="width:70px"></label>
+      <label class="note"><input type="checkbox" id="newSabato"> Lavora il sabato</label>
+      <label class="note"><input type="checkbox" id="newNoPhone"> <b>Senza telefono</b> (le sue ore le scrivi tu)</label>
+    </div>
     <details id="manualBox" style="border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0">
       <summary style="cursor:pointer;font-weight:700">✍️ Scrivi ore a mano (dipendente senza telefono, telefono rotto…)</summary>
       <div class="row" style="align-items:flex-end;margin-top:8px">
@@ -457,15 +461,15 @@
   </section>
 
   <section class="card hidden noprint" id="rulesCard">
-    <h2>⏰ Orario di lavoro e consulente</h2>
-    <p class="muted">Si scrive una volta sola: serve per calcolare gli straordinari e per mandare il file al consulente.</p>
+    <h2>🏢 Dati della ditta</h2>
+    <p class="sec-note">L'orario si sceglie per ogni dipendente, sotto il suo nome (pagina Dipendenti).</p>
       <div class="row" style="margin-top:10px;align-items:flex-end">
-        <label class="note">Ore normali al giorno<br><input id="ruleOre" type="number" min="1" max="24" step="0.5" style="width:90px"></label>
-        <label class="note"><input id="ruleSabato" type="checkbox"> Si lavora anche il sabato</label>
-        <label class="note">Santo patrono (gg/mm)<br><input id="rulePatrono" placeholder="es. 29/06" style="width:110px"></label>
-        <label class="note">Email del consulente<br><input id="ruleEmail" type="email" placeholder="consulente@esempio.it" style="width:240px"></label>
-        <label class="note">Email dove i dipendenti mandano il report<br><input id="ruleReportEmail" type="email" placeholder="cartellini.ditta@gmail.com" style="width:260px"></label>
+        <label class="note">Festa del patrono (gg/mm)<br><input id="rulePatrono" placeholder="es. 29/06" style="width:110px"></label>
+        <label class="note">Email del consulente (per mandargli il file)<br><input id="ruleEmail" type="email" placeholder="nome@esempio.it" style="width:260px"></label>
+        <label class="note" id="ruleReportEmailBox">Email dove i dipendenti mandano il report<br><input id="ruleReportEmail" type="email" placeholder="cartellini.ditta@gmail.com" style="width:260px"></label>
+        <span class="hidden"><input id="ruleOre" type="number"><input id="ruleSabato" type="checkbox"></span>
       </div>
+      <p id="ruleEmailError" class="bad" style="min-height:1.2em;margin:6px 0 0"></p>
       <p class="note">Oltre queste ore è <b>straordinario</b>. Il sabato (se non si lavora) è tutto straordinario; domeniche e feste sono <b>ore festive</b>; le <b>notturne</b> (22-6) sono già comprese. Il consulente applica il contratto (CCNL).</p>
   </section>
 
@@ -3456,11 +3460,17 @@ var qrcode = function() {
     if (r && r.orePer && typeof r.orePer === "object") {
       for (const [cf, v] of Object.entries(r.orePer)) { const n = Number(v); if (n > 0 && n <= 24) orePer[cf] = n; }
     }
+    // sabato lavorativo per singolo dipendente: { cf: true/false } (se manca vale quello della ditta)
+    const sabatoPer = {};
+    if (r && r.sabatoPer && typeof r.sabatoPer === "object") {
+      for (const [cf, v] of Object.entries(r.sabatoPer)) if (typeof v === "boolean") sabatoPer[cf] = v;
+    }
     return {
       oreGiorno: o > 0 && o <= 24 ? o : DEFAULT_RULES.oreGiorno,
       sabato: !!(r && r.sabato),
       patrono: r && /^\d\d-\d\d$/.test(r.patrono || "") ? r.patrono : "",
       orePer,
+      sabatoPer,
     };
   }
   /** Domenica di Pasqua (calendario gregoriano): [mese, giorno]. */
@@ -3482,11 +3492,12 @@ var qrcode = function() {
   }
   const weekday = (date) => new Date(date + "T12:00:00Z").getUTCDay(); // 0 = domenica
   /** "festivo" (domenica o festa), "riposo" (sabato se non si lavora) o "lavorativo". */
-  function dayKind(date, rules) {
+  function dayKind(date, rules, cf) {
     const r = normalizeRules(rules);
     const wd = weekday(date);
     if (wd === 0 || holidayName(date, r.patrono)) return "festivo";
-    if (wd === 6 && !r.sabato) return "riposo";
+    const sabato = cf && typeof r.sabatoPer[cf] === "boolean" ? r.sabatoPer[cf] : r.sabato;
+    if (wd === 6 && !sabato) return "riposo";
     return "lavorativo";
   }
   // Ora italiana (con ora legale/solare) di un istante, in minuti dalla mezzanotte
@@ -3540,7 +3551,7 @@ var qrcode = function() {
     for (const [cf, p] of out) {
       const ordMax = Math.round((r.orePer[cf] || r.oreGiorno) * 60);
       for (const [date, d] of Object.entries(p.days)) {
-        const kind = dayKind(date, r);
+        const kind = dayKind(date, r, cf);
         if (kind === "festivo") d.fest = d.tot;
         else if (kind === "riposo") d.str = d.tot;
         else { d.ord = Math.min(d.tot, ordMax); d.str = d.tot - d.ord; }
@@ -3866,7 +3877,7 @@ var qrcode = function() {
     const timbrature = [
       ["Data", "Cognome e nome", "Codice fiscale", "Entrata", "Uscita", "Ore", "Tipo di giorno", "Luogo", "Mansione", "Note"],
       ...shifts.filter((s) => s.date.startsWith(month)).map((s) => [fmt(s.date), s.name, s.cf, s.in, s.out, s.minutes == null ? null : hoursNum(s.minutes),
-        dayKind(s.date, r) === "festivo" ? holidayName(s.date, r.patrono) || "Domenica" : dayKind(s.date, r) === "riposo" ? "Sabato (riposo)" : "Lavorativo",
+        dayKind(s.date, r, s.cf) === "festivo" ? holidayName(s.date, r.patrono) || "Domenica" : dayKind(s.date, r, s.cf) === "riposo" ? "Sabato (riposo)" : "Lavorativo",
         s.place || "", s.task || "", s.manual ? `Scritto dal datore${s.motivo ? ": " + s.motivo : ""}` : s.anomaly || ""]),
     ];
     const note = [
@@ -3877,6 +3888,7 @@ var qrcode = function() {
       ["Ore ordinarie al giorno", r.oreGiorno],
       ...Object.entries(r.orePer).filter(([cf]) => summary.some((x) => x.cf === cf)).map(([cf, n]) => [`  di cui ${(summary.find((x) => x.cf === cf) || {}).name || cf}`, `${String(n).replace(".", ",")} ore al giorno (part-time)`]),
       ["Si lavora il sabato", r.sabato ? "sì" : "no (ore del sabato = straordinario)"],
+      ...Object.entries(r.sabatoPer).filter(([cf, v]) => v !== r.sabato && summary.some((x) => x.cf === cf)).map(([cf, v]) => [`  ${(summary.find((x) => x.cf === cf) || {}).name || cf}`, v ? "lavora il sabato" : "non lavora il sabato (ore del sabato = straordinario)"]),
       ["Santo patrono", r.patrono ? `${r.patrono.slice(3)}/${r.patrono.slice(0, 2)}` : "non indicato"],
       ["Come sono calcolate", "Ore in decimali (7,5 = 7 ore e 30 minuti), solo turni completi con firma digitale valida. Domeniche e festivi = ore festive. Notturne = ore tra le 22 e le 6 (già comprese nelle altre colonne)."],
       ["Da verificare", "Le regole del contratto collettivo (CCNL) le applica il consulente: questo file riporta le ore registrate."],
@@ -4021,7 +4033,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611231451"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611241645"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -5124,8 +5136,12 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
   function rules() {
     // ore normali al giorno della ditta + quelle dei singoli dipendenti part-time
     const orePer = {};
-    for (const [cf, v] of Object.entries(people())) if (v && Number(v.oreGiorno) > 0) orePer[cf] = Number(v.oreGiorno);
-    return L.normalizeRules({ ...loadJson("cartellino.orario"), orePer });
+    const sabatoPer = {};
+    for (const [cf, v] of Object.entries(people())) {
+      if (v && Number(v.oreGiorno) > 0) orePer[cf] = Number(v.oreGiorno);
+      if (v && typeof v.sabato === "boolean") sabatoPer[cf] = v.sabato;
+    }
+    return L.normalizeRules({ ...loadJson("cartellino.orario"), orePer, sabatoPer });
   }
   function consultantEmail() { return String(loadJson("cartellino.orario").email || "").trim(); }
   /** Assenze da contare: valide e non rifiutate. */
@@ -5150,7 +5166,11 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
   function saveRules() {
     const m = /^\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2})\s*$/.exec($("rulePatrono").value);
     const patrono = m && +m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12 ? `${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
-    saveJson("cartellino.orario", { oreGiorno: Number(String($("ruleOre").value).replace(",", ".")), sabato: $("ruleSabato").checked, patrono, email: $("ruleEmail").value.trim(), reportEmail: $("ruleReportEmail").value.trim() });
+    const okMail = (t) => !t || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t);
+    const email = $("ruleEmail").value.trim(), repMail = $("ruleReportEmail").value.trim();
+    $("ruleEmailError").textContent = !okMail(email) ? "⚠️ Scrivi un'email vera del consulente (es. nome@gmail.com)." : !okMail(repMail) ? "⚠️ L'email per i report non è un'email vera." : "";
+    if (!okMail(email) || !okMail(repMail)) return;
+    saveJson("cartellino.orario", { oreGiorno: Number(String($("ruleOre").value).replace(",", ".")), sabato: $("ruleSabato").checked, patrono, email, reportEmail: repMail });
     fillRules();
     showReportEmail();
     if (state.data) render();
@@ -5273,6 +5293,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${!v.uscito ? `<button class="btn-small" data-act="task" ${ids}>✏️ Cambia mansione</button>` : ""}
         ${!v.uscito ? `<button class="btn-small" data-act="left" ${ids}>🚪 Non lavora più qui</button>` : ""}
         <label class="note">Ore al giorno <input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px"></label>
+        <label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> Lavora il sabato</label>
       </div>`;
     $("personCard").classList.remove("hidden");
   }
@@ -5391,6 +5412,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
   function renderAuto() {
     if (!state.company) return;
     const on = !!state.company.cassetta;
+    $("ruleReportEmailBox").classList.toggle("hidden", on); // con l'automatico i report non si mandano a mano
     $("optAuto").checked = on;
     $("autoState").innerHTML = !on
       ? "Spenta: i dipendenti mandano il report a fine mese, come sempre."
@@ -5814,7 +5836,7 @@ Digital Valut non ne ha una copia.</p>
     const extra = state.data ? [...state.data.names.entries()].filter(([cf]) => !(pe[cf] && pe[cf].invito)).map(([cf, name]) => [cf, { ...(pe[cf] || {}), invito: { cognome: name, nome: "", mansione: "" }, selfReg: true }]) : [];
     const all = rows.concat(extra);
     table($("tStaff"),
-      [{ t: "Dipendente" }, { t: "Mansione" }, { t: "Ore al giorno" }, { t: "Stato" }, { t: "" }],
+      [{ t: "Dipendente" }, { t: "Mansione" }, { t: "Orario" }, { t: "Stato" }, { t: "" }],
       all.map(([cf, v]) => {
         const ids = `data-cf="${esc(cf)}"`;
         const last = state.data && state.data.lastReport.get(cf);
@@ -5833,7 +5855,7 @@ Digital Valut non ne ha una copia.</p>
         return { cls: v.uscito || v.nascosto ? "invalid" : "", cells: [
           `<a href="#" data-person="${esc(cf)}"><b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b></a><br><span class="note">${esc(cf)}</span>`,
           esc(v.mansione || v.invito.mansione || (state.data ? [...state.data.attendances].reverse().find((a) => a.cf === cf && a.task)?.task || "" : "")) + (v.mansioneAt ? ` <span class="pill warn">cambiata</span>` : ""),
-          `<input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px" title="Vuoto = come la ditta. Part-time: scrivi le sue ore (es. 4).">`,
+          `<input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:64px" title="Ore al giorno (es. 4 per un part-time)"> <span class="note">ore</span><br><label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> sabato</label>`,
           stato,
           btns,
         ] };
@@ -5909,24 +5931,33 @@ Digital Valut non ne ha una copia.</p>
     const prev = pe[data.cf] || {};
     pe[data.cf] = { ...prev, eliminato: false, uscito: prev.eliminato ? null : prev.uscito,
       senzaTelefono: noPhone,
+      oreGiorno: (() => { const n = Number(String($("newOre").value).replace(",", ".")); return n > 0 && n <= 24 ? n : (prev.oreGiorno || null); })(),
+      sabato: $("newSabato").checked,
       invito: { at: new Date().toISOString(), nome: L.normalizeName(data.nome), cognome: L.normalizeName(data.cognome), mansione: data.mansione.replace(/\s+/g, " ").trim() } };
     if (!prev.mansione) delete pe[data.cf].mansione;
     saveJson(PEOPLE_STORE, pe);
     for (const id of ["newNome", "newCognome", "newCf", "newMansione"]) $(id).value = "";
     $("newNoPhone").checked = false;
+    $("newOre").value = "";
+    $("newSabato").checked = false;
     renderStaff();
     if (noPhone) { $("manualBox").open = true; $("manCf").value = data.cf; }
     else await sendInvite(data.cf);
     if (state.contents.length) await recompute();
   };
-  $("tStaff").addEventListener("change", async (e) => {
+  document.addEventListener("change", async (e) => {
     const inp = e.target.closest("[data-ore]");
-    if (!inp) return;
-    const pe = people(), cf = inp.dataset.ore;
-    const n = Number(String(inp.value).replace(",", "."));
-    pe[cf] = { ...(pe[cf] || {}), oreGiorno: n > 0 && n <= 24 ? n : null };
+    const sab = e.target.closest("[data-sab]");
+    if (!inp && !sab) return;
+    const pe = people();
+    if (inp) {
+      const cf = inp.dataset.ore, n = Number(String(inp.value).replace(",", "."));
+      pe[cf] = { ...(pe[cf] || {}), oreGiorno: n > 0 && n <= 24 ? n : null };
+    } else {
+      pe[sab.dataset.sab] = { ...(pe[sab.dataset.sab] || {}), sabato: sab.checked };
+    }
     saveJson(PEOPLE_STORE, pe);
-    if (state.data) safeRender();
+    if (state.data) safeRender(); else { renderStaff(); renderPerson(); }
   });
   $("tStaff").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-staff]");
