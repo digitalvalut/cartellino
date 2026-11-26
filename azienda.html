@@ -481,6 +481,7 @@
       <div class="row noprint" style="align-items:center">
         <button class="primary big" id="sendBtn">✉️ Invia al consulente</button>
         <button class="btn-small" id="xlsxBtn">📊 Scarica Excel</button>
+        <button class="btn-small" id="payBtn" title="Da importare nel programma paghe del consulente (Buffetti, Zucchetti, TeamSystem...)">📄 File per programma paghe</button>
         <button class="btn-small" id="pdfBtn">📄 PDF</button>
       </div>
     </div>
@@ -3836,6 +3837,62 @@ var qrcode = function() {
     return "﻿" + [header, ...rows].map((r) => r.map(cell).join(";")).join("\r\n");
   }
 
+  // ------------------------------------------------------ file per i PROGRAMMI PAGHE (CSV da importare)
+  /**
+   * Una riga per dipendente, per giorno, per voce: il formato piu' facile da importare nei programmi paghe
+   * (Buffetti, Zucchetti, TeamSystem, Inaz, Ranocchi...: il consulente collega le colonne una volta sola).
+   * Voci: ORDINARIE, STRAORDINARIO, FESTIVE, NOTTURNE (di cui), FERIE, MALATTIA, PERMESSO SINDACALE.
+   * Le assenze contano solo nei giorni lavorativi di quella persona, con le sue ore al giorno.
+   * leaves: solo le assenze da contare (il chiamante toglie quelle rifiutate).
+   */
+  const PAY_LEAVE = { FERIE: "FERIE", MALATTIA: "MALATTIA", PERMESSO_SINDACALE_LEGGE_300_70: "PERMESSO SINDACALE" };
+  function payrollRows({ month, shifts, leaves, rules }) {
+    const r = normalizeRules(rules);
+    const byDay = hoursByDay(shifts, month, r);
+    const rows = [];
+    const names = new Map();
+    for (const s of shifts) if (s.cf && s.name) names.set(s.cf, s.name);
+    for (const l of leaves || []) if (l.cf && l.name && !names.has(l.cf)) names.set(l.cf, l.name);
+    const add = (cf, date, voce, minutes) => {
+      if (!minutes) return;
+      rows.push({ cf, name: names.get(cf) || cf, date, voce, minutes });
+    };
+    for (const [cf, p] of byDay) {
+      for (const [date, d] of Object.entries(p.days)) {
+        add(cf, date, "ORDINARIE", d.ord);
+        add(cf, date, "STRAORDINARIO", d.str);
+        add(cf, date, "FESTIVE", d.fest);
+        add(cf, date, "NOTTURNE", d.nott);
+      }
+    }
+    const [y, m] = month.split("-").map(Number);
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    for (const l of leaves || []) {
+      const voce = PAY_LEAVE[l.type];
+      if (!voce || l.valid === false) continue;
+      const perDay = Math.round((r.orePer[l.cf] || r.oreGiorno) * 60);
+      for (let g = 1; g <= last; g++) {
+        const date = `${month}-${String(g).padStart(2, "0")}`;
+        if (date < l.startDate || date > l.endDate) continue;
+        if (dayKind(date, r, l.cf) !== "lavorativo") continue;
+        add(l.cf, date, voce, perDay);
+      }
+    }
+    const order = ["ORDINARIE", "STRAORDINARIO", "FESTIVE", "NOTTURNE", "FERIE", "MALATTIA", "PERMESSO SINDACALE"];
+    rows.sort((a, b) => a.name.localeCompare(b.name, "it") || a.cf.localeCompare(b.cf) || a.date.localeCompare(b.date) || order.indexOf(a.voce) - order.indexOf(b.voce));
+    return rows;
+  }
+  /** Testo CSV (";" e virgola decimale, come vogliono i programmi italiani). */
+  function payrollCsv(args) {
+    const it = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+    const dec = (min) => (Math.round((min / 60) * 100) / 100).toFixed(2).replace(".", ",");
+    const hm = (min) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`;
+    return toCSV(
+      ["Codice fiscale", "Dipendente", "Data", "Voce", "Ore", "Ore (hh:mm)"],
+      payrollRows(args).map((x) => [x.cf, x.name, it(x.date), x.voce, dec(x.minutes), hm(x.minutes)])
+    );
+  }
+
   // ------------------------------------------------------ file Excel (.xlsx) per il consulente del lavoro
   const hoursNum = (min) => (min ? Math.round((min / 60) * 100) / 100 : 0);
   const LEAVE_ROWS = [["FERIE", "Ferie (giorni)"], ["MALATTIA", "Malattia (giorni)"], ["PERMESSO_SINDACALE_LEGGE_300_70", "Permessi sindacali (giorni)"]];
@@ -4020,6 +4077,8 @@ var qrcode = function() {
     formatMinutes,
     formatHoursDecimal,
     toCSV,
+    payrollRows,
+    payrollCsv,
     romeDate,
     romeTime,
   };
@@ -4035,7 +4094,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611241659"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611260719"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -5194,6 +5253,11 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     const bytes = L.buildXlsx(L.consultantSheets({ companyName: c.name, month: state.month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }));
     return { name: `presenze-${slug}-${state.month}.xlsx`, bytes };
   }
+  function payrollFile() {
+    const c = state.company || {};
+    const slug = String(c.name || "azienda").normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "azienda";
+    return { name: `paghe-${slug}-${state.month}.csv`, text: L.payrollCsv({ month: state.month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }) };
+  }
   function downloadBytes(name, bytes, type) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type }));
@@ -5203,16 +5267,18 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     a.remove();
   }
   $("xlsxBtn").onclick = () => { if (!state.data) return; const f = consultantFile(); downloadBytes(f.name, f.bytes, XLSX_TYPE); };
+  $("payBtn").onclick = () => { if (!state.data) return; const p = payrollFile(); download(p.name, p.text, "text/csv;charset=utf-8"); };
   $("sendBtn").onclick = async () => {
     if (!state.data) return;
-    const f = consultantFile(), c = state.company || {};
+    const f = consultantFile(), c = state.company || {}, pay = payrollFile();
     const subject = `Presenze ${monthLabel(state.month)} - ${c.name || ""}`;
-    const body = `Buongiorno,\nin allegato il file delle presenze di ${monthLabel(state.month)} (ore ordinarie, straordinari, festivi, ferie, malattia e permessi).\n\nCordiali saluti\n${c.name || ""}`;
+    const body = `Buongiorno,\nin allegato le presenze di ${monthLabel(state.month)}: il file Excel (ore ordinarie, straordinari, festivi, ferie, malattia e permessi) e il file CSV da importare nel programma paghe (una riga per dipendente, giorno e voce).\n\nCordiali saluti\n${c.name || ""}`;
     // 1) se il computer lo permette: condivisione diretta del file (Posta, Outlook, WhatsApp…)
     try {
       const file = new File([f.bytes], f.name, { type: XLSX_TYPE });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: subject, text: body });
+      const file2 = new File([pay.text], pay.name, { type: "text/csv" });
+      if (navigator.canShare && navigator.canShare({ files: [file, file2] })) {
+        await navigator.share({ files: [file, file2], title: subject, text: body });
         return;
       }
     } catch (e) {
@@ -5220,6 +5286,7 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     }
     // 2) altrimenti: scarico il file e apro l'email già scritta (il file si allega dalla cartella Download)
     downloadBytes(f.name, f.bytes, XLSX_TYPE);
+    download(pay.name, pay.text, "text/csv;charset=utf-8");
     const email = consultantEmail();
     if (!email) {
       alert(`File scaricato: ${f.name}
@@ -5230,7 +5297,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
       return;
     }
     const a = document.createElement("a");
-    a.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${body}\n\n(Allegato: ${f.name})`)}`;
+    a.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${body}\n\n(Allegati: ${f.name} e ${pay.name}, da importare nel programma paghe)`)}`;
     a.click();
     alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
   };
