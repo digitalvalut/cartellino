@@ -3437,6 +3437,65 @@ var qrcode = function() {
     };
   }
 
+  const nextDay = (d) => new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
+  /** Priorita' se due assenze cadono lo stesso giorno: la malattia interrompe le ferie. */
+  const LEAVE_PRIO = { MALATTIA: 3, PERMESSO_SINDACALE_LEGGE_300_70: 2, FERIE: 1 };
+  /**
+   * Toglie i DOPPIONI: se lo stesso dipendente ha richieste che si sovrappongono, ogni giorno conta una
+   * volta sola (malattia > permesso > ferie; a parita' vince la prima richiesta). Restituisce richieste
+   * "pulite", spezzate a pezzi di giorni consecutivi. Le richieste non valide restano fuori.
+   */
+  function dedupeLeaves(leaves) {
+    const byCf = new Map();
+    const sorted = (leaves || []).filter((l) => l && l.valid !== false && isIsoDate(l.startDate) && isIsoDate(l.endDate) && l.endDate >= l.startDate)
+      .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+    for (const l of sorted) {
+      if (!byCf.has(l.cf)) byCf.set(l.cf, new Map());
+      const days = byCf.get(l.cf);
+      for (let d = l.startDate, n = 0; d <= l.endDate && n < 400; d = nextDay(d), n++) {
+        const cur = days.get(d);
+        if (!cur || (LEAVE_PRIO[l.type] || 0) > (LEAVE_PRIO[cur.type] || 0)) days.set(d, l);
+      }
+    }
+    const out = [];
+    for (const days of byCf.values()) {
+      let seg = null;
+      for (const d of [...days.keys()].sort()) {
+        const l = days.get(d);
+        if (seg && seg.src === l && nextDay(seg.endDate) === d) { seg.endDate = d; continue; }
+        if (seg) out.push(seg.item(seg));
+        seg = { src: l, startDate: d, endDate: d, item: (x) => ({ ...x.src, startDate: x.startDate, endDate: x.endDate }) };
+      }
+      if (seg) out.push(seg.item(seg));
+    }
+    return out;
+  }
+  /** Richieste annullate dal dipendente: correzione ANNULLA che punta all'id di una SUA richiesta. */
+  function applyLeaveCancellations(data) {
+    const byKey = new Map();
+    for (const c of (data && data.corrections) || []) if (c.valid && c.tipo === "ANNULLA") byKey.set(c.cf + "|" + c.target, c);
+    const active = [], cancelled = [];
+    for (const l of (data && data.leaves) || []) {
+      const c = byKey.get(l.cf + "|" + l.id);
+      if (c) cancelled.push({ ...l, cancelledAt: c.createdAt || "", cancelReason: c.reason || "" });
+      else active.push(l);
+    }
+    if (data) { data.leaves = active; data.cancelledLeaves = cancelled; }
+    return data;
+  }
+  /** Per ogni richiesta: le ALTRE richieste dello stesso dipendente con giorni in comune (escluse le rifiutate). */
+  function leaveOverlaps(leaves, decisions) {
+    const dec = decisions || {};
+    const ok = (leaves || []).filter((l) => l.valid && !(dec[l.id] && dec[l.id].esito === "RIFIUTATA"));
+    const out = new Map();
+    for (const a of ok) for (const b of ok) {
+      if (a === b || a.cf !== b.cf || a.startDate > b.endDate || b.startDate > a.endDate) continue;
+      if (!out.has(a.id)) out.set(a.id, []);
+      out.get(a.id).push(b);
+    }
+    return out;
+  }
+
   /** Giorni di calendario di [start,end] che cadono nel mese "YYYY-MM". */
   function leaveDaysInMonth(startDate, endDate, month) {
     const [y, m] = month.split("-").map(Number);
@@ -3565,6 +3624,7 @@ var qrcode = function() {
 
   /** Riepilogo per il consulente del lavoro, per dipendente, nel mese indicato. */
   function monthlySummary(shifts, leaves, month, rules) {
+    leaves = dedupeLeaves(leaves);
     const rows = new Map();
     const row = (cf, name) => {
       if (!rows.has(cf)) rows.set(cf, { cf, name: name || cf, days: new Set(), minutes: 0, shifts: 0, anomalies: 0, ferie: 0, malattia: 0, sindacale: 0, ord: 0, str: 0, fest: 0, nott: 0 });
@@ -3847,6 +3907,7 @@ var qrcode = function() {
    */
   const PAY_LEAVE = { FERIE: "FERIE", MALATTIA: "MALATTIA", PERMESSO_SINDACALE_LEGGE_300_70: "PERMESSO SINDACALE" };
   function payrollRows({ month, shifts, leaves, rules }) {
+    leaves = dedupeLeaves(leaves);
     const r = normalizeRules(rules);
     const byDay = hoursByDay(shifts, month, r);
     const rows = [];
@@ -3902,6 +3963,7 @@ var qrcode = function() {
    * leaves: solo le assenze da contare (il chiamante toglie quelle rifiutate).
    */
   function consultantSheets({ companyName, month, shifts, leaves, rules }) {
+    leaves = dedupeLeaves(leaves);
     const r = normalizeRules(rules);
     const [y, mo] = month.split("-").map(Number);
     const nDays = new Date(Date.UTC(y, mo, 0)).getUTCDate();
@@ -4074,6 +4136,9 @@ var qrcode = function() {
     buildXlsx,
     crc32,
     leaveDaysInMonth,
+    dedupeLeaves,
+    applyLeaveCancellations,
+    leaveOverlaps,
     formatMinutes,
     formatHoursDecimal,
     toCSV,
@@ -4094,7 +4159,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611261431"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611261450"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4499,6 +4564,7 @@ var qrcode = function() {
     document.body.classList.toggle("hasdata", any);
     if (!any) { $("results").classList.add("hidden"); return; }
     state.data = await L.processReports(state.contents);
+    L.applyLeaveCancellations(state.data); // richieste annullate dal dipendente: fuori dai conti, restano visibili come "annullate"
     filterAuthorized(state.data);
     state.shifts = buildAllShifts();
     const months = new Set();
@@ -4571,8 +4637,17 @@ var qrcode = function() {
     const monthStart = thisMonth + "-01";
     const noReport = cfs.filter((cf) => !(pe[cf] && pe[cf].uscito) && (!d.lastReport.get(cf) || ymd(new Date(d.lastReport.get(cf))) < monthStart));
     const todo = [];
+    const ovs = L.leaveOverlaps(d.leaves, dec);
+    const ovText = (l) => {
+      const others = ovs.get(l.id) || [];
+      if (!others.length) return "";
+      const o = others[0], st = dec[o.id] ? (dec[o.id].esito === "APPROVATA" ? "già approvata" : "") : "in attesa";
+      return o.type === l.type
+        ? `<br><span class="pill bad">⚠️ Doppione</span> <small>ha già chiesto ${esc((LEAVE_LABEL[o.type] || o.type).toLowerCase())} dal ${fmtDate(o.startDate)} al ${fmtDate(o.endDate)}${st ? " (" + st + ")" : ""}: i giorni in comune contano una volta sola.</small>`
+        : `<br><span class="pill warn">⚠️ Giorni in comune</span> <small>con ${esc((LEAVE_LABEL[o.type] || o.type).toLowerCase())} dal ${fmtDate(o.startDate)} al ${fmtDate(o.endDate)}${st ? " (" + st + ")" : ""}${l.type === "MALATTIA" ? ": la malattia interrompe le ferie" : ""}.</small>`;
+    };
     for (const l of pending) {
-      todo.push(`<li${isUrgent(l) ? ' style="background:#fef9c3;border-radius:8px;padding-left:8px"' : ""}>${isUrgent(l) ? '<span class="pill bad">⚡ URGENTE</span> ' : ""}<span class="pill warn">Da decidere</span> <b>${esc(nameOf(l.cf))}</b> — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}
+      todo.push(`<li${isUrgent(l) ? ' style="background:#fef9c3;border-radius:8px;padding-left:8px"' : ""}>${isUrgent(l) ? '<span class="pill bad">⚡ URGENTE</span> ' : ""}<span class="pill warn">Da decidere</span> <b>${esc(nameOf(l.cf))}</b> — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}${ovText(l)}
         <span style="flex:1"></span><button class="btn-ok" data-act="approve" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✓ Approva</button>
         <button class="btn-no" data-act="reject" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✗ Rifiuta</button></li>`);
     }
@@ -4584,6 +4659,10 @@ var qrcode = function() {
     for (const cf of noReport) todo.push(`<li><span class="pill warn">Report</span> <b>${esc(nameOf(cf))}</b> non ha ancora mandato il report di questo mese.</li>`);
     if (issues.length) todo.push(`<li><span class="pill bad">${issues.length}</span> ${issues.length === 1 ? "cosa da controllare" : "cose da controllare"} (timbrature lontane, dati modificati, registrazioni mancanti…)
       <span style="flex:1"></span><button class="btn-small" data-goto="checks">Vedi</button></li>`);
+    const recentCancel = ymd(new Date(Date.now() - 14 * 86400000));
+    for (const l of (d.cancelledLeaves || []).filter((x) => shown(x.cf) && String(x.cancelledAt || "").slice(0, 10) >= recentCancel)) {
+      todo.push(`<li class="done"><span class="pill">↩️ Annullata dal dipendente</span> ${esc(nameOf(l.cf))} — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}${dec[l.id] && dec[l.id].esito === "APPROVATA" ? " (era approvata)" : ""}</li>`);
+    }
     for (const l of decided) {
       const ok = dec[l.id].esito === "APPROVATA";
       todo.push(`<li class="done"><span class="pill ${ok ? "ok" : "bad"}">${ok ? "✓ Approvata" : "✗ Rifiutata"}</span> ${esc(nameOf(l.cf))} — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}</li>`);
@@ -5339,6 +5418,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     const sum = d ? (L.monthlySummary(state.shifts.filter((x) => x.cf === cf), countedLeaves().filter((l) => l.cf === cf), month, rules())[0] || null) : null;
     const shifts = (state.shifts || []).filter((x) => x.cf === cf).sort((a, b) => (b.date + (b.in || "")).localeCompare(a.date + (a.in || ""))).slice(0, 15);
     const leaves = d ? d.leaves.filter((l) => l.cf === cf).sort((a, b) => String(b.startDate).localeCompare(String(a.startDate))) : [];
+    const cancelledMine = d ? (d.cancelledLeaves || []).filter((l) => l.cf === cf) : [];
     const ids = `data-cf="${esc(cf)}"`;
     const task = v.mansione || (v.invito && v.invito.mansione) || "";
     const statePill = v.uscito ? `<span class="pill bad">Uscito il ${esc(new Date(v.uscito).toLocaleDateString("it-IT"))}</span>`
@@ -5359,7 +5439,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${tile(sum && sum.malattia ? sum.malattia : 0, "giorni di malattia")}
       </div>
       <h3>🗓️ Richieste</h3>
-      ${leaves.length ? `<div class="tablewrap"><table><tbody>${leaves.map((l) => `<tr><td><b>${esc(LEAVE_LABEL[l.type] || l.type)}</b></td><td>dal ${esc(fmtDate(l.startDate))} al ${esc(fmtDate(l.endDate))}</td><td>${decisionCell(l)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="note">Nessuna richiesta.</p>`}
+      ${leaves.length || cancelledMine.length ? `<div class="tablewrap"><table><tbody>${leaves.map((l) => `<tr><td><b>${esc(LEAVE_LABEL[l.type] || l.type)}</b></td><td>dal ${esc(fmtDate(l.startDate))} al ${esc(fmtDate(l.endDate))}</td><td>${decisionCell(l)}</td></tr>`).join("")}${cancelledMine.map((l) => `<tr style="color:#94a3b8"><td><s>${esc(LEAVE_LABEL[l.type] || l.type)}</s></td><td><s>dal ${esc(fmtDate(l.startDate))} al ${esc(fmtDate(l.endDate))}</s></td><td>↩️ Annullata dal dipendente</td></tr>`).join("")}</tbody></table></div>` : `<p class="note">Nessuna richiesta.</p>`}
       <h3>🕐 Ultime timbrature</h3>
       ${shifts.length ? `<div class="tablewrap"><table><thead><tr><th>Giorno</th><th>Entrata</th><th>Uscita</th><th>Ore</th><th>Luogo</th><th></th></tr></thead><tbody>${shifts.map((x) => `<tr class="${x.anomaly ? "anom" : ""}"><td>${esc(fmtDate(x.date))}</td><td>${esc(x.in || "—")}</td><td>${esc(x.out || "—")}</td><td>${x.minutes != null ? fm(x.minutes) : ""}</td><td>${esc(x.place || "")}</td><td>${x.manual ? `<span class="pill warn">✍️ scritto da te</span>` : x.anomaly ? `<span class="pill warn">${esc(x.anomaly)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<p class="note">Nessuna timbratura ancora.</p>`}
       <h3>⚙️ Azioni</h3>
@@ -5557,9 +5637,10 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     state.files.push({ name: `Automatico-${who}-${month}-${dev}.cartellino.json`, text, status: "", key, auto, exportedAt: content.exportedAt });
     return true;
   }
-  function autoNewsFrom(beforeAtt, beforeLeaves) {
+  function autoNewsFrom(beforeAtt, beforeLeaves, beforeCancelled) {
     const items = [];
     if (!state.data) return items;
+    for (const l of state.data.cancelledLeaves || []) if (beforeCancelled && !beforeCancelled.has(l.id)) items.push(`↩️ <b>${esc(l.name)}</b> ha <b>annullato</b> ${esc(String(l.type || "").toLowerCase().replace(/_/g, " "))} dal ${esc(fmtDate(l.startDate))} al ${esc(fmtDate(l.endDate))}`);
     for (const l of state.data.leaves) if (!beforeLeaves.has(l.id)) items.push(`🗓️ <b>${esc(l.name)}</b> ha chiesto <b>${esc(String(l.type || "").toLowerCase().replace(/_/g, " "))}</b> dal ${esc(fmtDate(l.startDate))} al ${esc(fmtDate(l.endDate))}`);
     const fresh = state.data.attendances.filter((a) => !beforeAtt.has(a.id));
     const byName = new Map();
@@ -5575,7 +5656,8 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     if (AUTO.busy || !state.key || !state.company || !state.company.cassetta) return;
     AUTO.busy = true;
     const beforeAtt = new Set(((state.data && state.data.attendances) || []).map((a) => a.id));
-    const beforeLeaves = new Set(((state.data && state.data.leaves) || []).map((l) => l.id));
+    const beforeLeaves = new Set([...((state.data && state.data.leaves) || []), ...((state.data && state.data.cancelledLeaves) || [])].map((l) => l.id));
+    const beforeCancelled = new Set(((state.data && state.data.cancelledLeaves) || []).map((l) => l.id));
     let changed = false;
     try {
       for (let round = 0; round < 20; round++) {
@@ -5598,7 +5680,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
       AUTO.busy = false;
     }
     if (changed && beforeAtt.size + beforeLeaves.size >= 0) {
-      const news = autoNewsFrom(beforeAtt, beforeLeaves);
+      const news = autoNewsFrom(beforeAtt, beforeLeaves, beforeCancelled);
       if (news.length) {
         $("autoNewsList").innerHTML = news.map((n) => `<li>${n}</li>`).join("") + $("autoNewsList").innerHTML;
         $("autoNews").classList.remove("hidden");
