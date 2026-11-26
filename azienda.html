@@ -4094,7 +4094,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611260719"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611260751"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4271,6 +4271,7 @@ var qrcode = function() {
       checkLicense();
       unlocked();
       setView("qr");
+      void enableAutoForNewCompany(); // "tutto in automatico" acceso da subito (se c'e' internet)
     } catch (e) {
       err(e.message || "Errore imprevisto");
     } finally {
@@ -5608,6 +5609,20 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     }
     renderAuto();
     renderToday();
+  }
+  /** Azienda nuova: "Ricevi tutto in automatico" parte gia' acceso. Senza internet resta spento (si accende dai Primi passi). */
+  async function enableAutoForNewCompany() {
+    try {
+      await cassettaPost("attiva", "1", { on: true });
+      state.company.cassetta = true;
+      save(state.company);
+      renderAuto();
+      renderStart();
+      renderToday();
+      void autoPoll();
+    } catch {
+      // resta spento: nessun problema, si accende con un clic
+    }
   }
   function autoStart() {
     renderAuto();
