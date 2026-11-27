@@ -3183,6 +3183,8 @@ var qrcode = function() {
     const attendances = [];
     const leaves = [];
     const corrections = [];
+    const confirmations = []; // "Confermo le mie ore" del dipendente
+    const caps = new Map(); // cf -> cosa sa fare la sua app (es. "saldoFerie")
     const issues = [];
     const seen = new Map();
     const devices = new Map(); // cf -> Set(impronte)
@@ -3212,12 +3214,16 @@ var qrcode = function() {
         if (!deviceUsers.has(fp)) deviceUsers.set(fp, new Set());
         deviceUsers.get(fp).add(c.cf);
       }
-      if (isIsoDateTime(c.exportedAt) && (!lastReport.has(c.cf) || c.exportedAt > lastReport.get(c.cf))) lastReport.set(c.cf, c.exportedAt);
+      if (isIsoDateTime(c.exportedAt) && (!lastReport.has(c.cf) || c.exportedAt > lastReport.get(c.cf))) {
+        lastReport.set(c.cf, c.exportedAt);
+        caps.set(c.cf, new Set(Array.isArray(c.caps) ? c.caps.filter((x) => typeof x === "string").slice(0, 20) : []));
+      }
 
       const all = [
         ...(Array.isArray(c.attendances) ? c.attendances : []).map((r) => ({ r, kind: "ATTENDANCE" })),
         ...(Array.isArray(c.leaveRequests) ? c.leaveRequests : []).map((r) => ({ r, kind: "LEAVE" })),
         ...(Array.isArray(c.corrections) ? c.corrections : []).map((r) => ({ r, kind: "CORRECTION" })),
+        ...(Array.isArray(c.confirmations) ? c.confirmations : []).map((r) => ({ r, kind: "CONFIRM" })),
       ];
       for (const { r, kind } of all) {
         if (!r || typeof r !== "object" || !isText(r.id) || typeof r.payload !== "string") {
@@ -3239,6 +3245,7 @@ var qrcode = function() {
           if (p.cf !== c.cf) problems.push("Codice Fiscale diverso da quello del report");
           if (p.tenantId !== c.tenantId) problems.push("azienda diversa");
           if (kind === "LEAVE" && p.kind !== "LEAVE_REQUEST") problems.push("tipo di record errato");
+          if (kind === "CONFIRM" && (p.kind !== "CONFIRM_MONTH" || !/^\d{4}-\d{2}$/.test(String(p.month || "")) || (p.esito !== "OK" && p.esito !== "NON_GIUSTO"))) problems.push("conferma non valida");
           if (kind === "CORRECTION" && (p.kind !== "CORRECTION" || (p.tipo !== "ANNULLA" && p.tipo !== "USCITA") || !isText(p.target) ||
             (p.tipo === "USCITA" && !isIsoDateTime(p.time)))) problems.push("correzione non valida");
           if (kind === "ATTENDANCE" && (!isIsoDateTime(p.timestamp) || (p.type !== "ENTRATA" && p.type !== "USCITA"))) {
@@ -3276,6 +3283,10 @@ var qrcode = function() {
         }
         const recName = p ? [p.lastName, p.firstName].filter(Boolean).join(" ") : "";
         const base = { id: r.id, cf: c.cf, name: recName || reportName || c.cf, valid, problems, devicePrint: fp };
+        if (kind === "CONFIRM") {
+          if (p) confirmations.push({ ...base, month: p.month, esito: p.esito, nota: String(p.nota || "").slice(0, 300), createdAt: p.createdAt || "" });
+          continue;
+        }
         if (kind === "CORRECTION") {
           if (p) corrections.push({ ...base, tipo: p.tipo, target: String(p.target || ""), time: p.tipo === "USCITA" ? p.time : null, reason: String(p.reason || ""), createdAt: p.createdAt || "" });
           continue;
@@ -3342,7 +3353,7 @@ var qrcode = function() {
     }
     attendances.sort((x, y) => x.timestamp.localeCompare(y.timestamp));
     leaves.sort((x, y) => x.startDate.localeCompare(y.startDate));
-    return { attendances, leaves, corrections, issues, devices, names, lastReport };
+    return { attendances, leaves, corrections, confirmations, caps, issues, devices, names, lastReport };
   }
 
   /**
@@ -4211,7 +4222,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611270815"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611270908"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4719,6 +4730,10 @@ var qrcode = function() {
     if (issues.length) todo.push(`<li><span class="pill bad">${issues.length}</span> ${issues.length === 1 ? "cosa da controllare" : "cose da controllare"} (timbrature lontane, dati modificati, registrazioni mancanti…)
       <span style="flex:1"></span><button class="btn-small" data-goto="checks">Vedi</button></li>`);
     const recentCancel = ymd(new Date(Date.now() - 14 * 86400000));
+    for (const c of (d.confirmations || []).filter((x) => x.valid && x.esito === "NON_GIUSTO" && shown(x.cf) && String(x.createdAt).slice(0, 10) >= recentCancel)) {
+      todo.push(`<li><span class="pill bad">✋ Ore non giuste</span> <b>${esc(nameOf(c.cf))}</b> dice che le ore di ${esc(monthLabel(c.month))} non sono giuste: «${esc(c.nota)}»
+        <span style="flex:1"></span><button class="btn-small" data-person="${esc(c.cf)}">Apri la cartella</button></li>`);
+    }
     for (const l of (d.cancelledLeaves || []).filter((x) => shown(x.cf) && String(x.cancelledAt || "").slice(0, 10) >= recentCancel)) {
       todo.push(`<li class="done"><span class="pill">↩️ Annullata dal dipendente</span> ${esc(nameOf(l.cf))} — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}${dec[l.id] && dec[l.id].esito === "APPROVATA" ? " (era approvata)" : ""}</li>`);
     }
@@ -4832,10 +4847,10 @@ var qrcode = function() {
 
     table($("tSummary"),
       [{ t: "Dipendente" }, { t: "Codice Fiscale" }, { t: "Giorni lavorati", num: 1 }, { t: "Ore totali", num: 1 }, { t: "Ordinarie", num: 1 }, { t: "Straordinario", num: 1 },
-       { t: "Festive", num: 1 }, { t: "di cui notturne", num: 1 }, { t: "Ferie (gg)", num: 1 }, { t: "Malattia (gg)", num: 1 }, { t: "Perm. sindacali (gg)", num: 1 }, { t: "Da controllare", num: 1 }],
+       { t: "Festive", num: 1 }, { t: "di cui notturne", num: 1 }, { t: "Ferie (gg)", num: 1 }, { t: "Malattia (gg)", num: 1 }, { t: "Perm. sindacali (gg)", num: 1 }, { t: "Da controllare", num: 1 }, { t: "Ore confermate dal dipendente" }],
       summary.map((r) => ({ cls: r.anomalies ? "anom" : "", cells: [`<b>${esc(r.name)}</b>`, esc(r.cf), r.days, L.formatMinutes(r.minutes), L.formatMinutes(r.ord),
         r.str ? `<b>${L.formatMinutes(r.str)}</b>` : "", r.fest ? L.formatMinutes(r.fest) : "", r.nott ? L.formatMinutes(r.nott) : "",
-        r.ferie || "", r.malattia || "", r.sindacale || "", r.anomalies ? `<span class="pill warn">${r.anomalies}</span>` : ""] })),
+        r.ferie || "", r.malattia || "", r.sindacale || "", r.anomalies ? `<span class="pill warn">${r.anomalies}</span>` : "", confirmCell(confirmOf(r.cf, m))] })),
       "Nessun dato in questo mese.");
 
     table($("tDetail"),
@@ -4915,6 +4930,7 @@ var qrcode = function() {
     saveJson(OUT_STORE, o);
   }
   function describe(item) {
+    if (item.k === "saldoFerie") return "ferie rimaste: " + item.giorni;
     if (item.k === "ferie") return (item.esito === "APPROVATA" ? "✓ " : "✗ ") + (item.etichetta || "richiesta");
     if (item.k === "mansione") return "nuova mansione: " + item.mansione;
     return "non lavora più qui";
@@ -4922,6 +4938,8 @@ var qrcode = function() {
   async function sendQueued(cf) {
     const items = (outbox()[cf] || []).map(({ etichetta, ...x }) => x);
     if (!items.length) return;
+    const capsF = state.data && state.data.caps && state.data.caps.get(cf), ferF = ferieOf(cf);
+    if (capsF && capsF.has("saldoFerie") && ferF) items.push({ k: "saldoFerie", giorni: ferF.left });
     const who = (state.data && state.data.names.get(cf)) || cf;
     const link = await sendMessage("pacchetto", cf, { items }, `Risposte per ${who}`, `${items.length} ${items.length === 1 ? "risposta" : "risposte"} in un solo messaggio.`);
     if (!link) return;
@@ -5368,6 +5386,23 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     }
     return { mese, banca };
   }
+  /** "Confermo le mie ore": l'ultima risposta del dipendente per quel mese (o null). */
+  function confirmOf(cf, month) {
+    const list = ((state.data && state.data.confirmations) || []).filter((c) => c.valid && c.cf === cf && c.month === month);
+    return list.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null;
+  }
+  const confirmCell = (c) => !c ? "" : c.esito === "OK" ? `<span class="pill ok" title="Confermate il ${esc(fmtDateTime(c.createdAt))}">✅ confermate</span>`
+    : `<span class="pill bad" title="${esc(c.nota)}">✋ non giuste</span> <small>«${esc(c.nota)}»</small>`;
+  /** Ferie rimaste anche sul telefono: solo se la sua app le sa mostrare e c'e' la cassetta (niente link da mandare). */
+  async function pushFerie(cf) {
+    const f = ferieOf(cf), caps = state.data && state.data.caps && state.data.caps.get(cf);
+    if (!f || !caps || !caps.has("saldoFerie") || !state.key || !state.company || !state.company.cassetta) return;
+    try {
+      const signed = await L.createCompanyMessage(state.key, { tenantId: state.company.code, cf, kind: "pacchetto", items: [{ k: "saldoFerie", giorni: f.left }] });
+      await autoDeliver(cf, signed);
+    } catch { /* riprova alla prossima risposta */ }
+  }
+
   /** Ferie rimaste (null = il datore non le ha ancora scritte). */
   function ferieOf(cf) {
     const v = people()[cf] || {};
@@ -5528,6 +5563,8 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     const tile = (val, label) => `<div class="tile"><b>${val}</b><span>${label}</span></div>`;
     const bal = balanceOf(cf);
     const fer = ferieOf(cf);
+    const prevMonth = (() => { const t = romeToday(); const dd = new Date(Date.UTC(Number(t.slice(0, 4)), Number(t.slice(5, 7)) - 2, 1)); return dd.toISOString().slice(0, 7); })();
+    const lastConf = confirmOf(cf, prevMonth);
     const fm = (m) => L.formatMinutes(m || 0);
     $("personBody").innerHTML = `
       <div class="ptop"><div class="avatar">${esc(initials(name))}</div>
@@ -5544,6 +5581,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${fer ? `<div class="tile" style="border-color:${fer.left < 0 ? "#fca5a5" : "#bae6fd"}"><b style="color:${fer.left < 0 ? "#b91c1c" : "#0369a1"}">🏖️ ${fer.left}</b><span>ferie rimaste</span></div>` : ""}
         ${tile(sum && sum.malattia ? sum.malattia : 0, "giorni di malattia")}
       </div>
+      ${lastConf ? `<p class="note">📝 Ore di ${esc(monthLabel(prevMonth))}: ${confirmCell(lastConf)}</p>` : ""}
       <h3>🗓️ Richieste</h3>
       ${leaves.length || cancelledMine.length ? `<div class="tablewrap"><table><tbody>${leaves.map((l) => `<tr><td><b>${esc(LEAVE_LABEL[l.type] || l.type)}</b></td><td>dal ${esc(fmtDate(l.startDate))} al ${esc(fmtDate(l.endDate))}</td><td>${decisionCell(l)}</td></tr>`).join("")}${cancelledMine.map((l) => `<tr style="color:#94a3b8"><td><s>${esc(LEAVE_LABEL[l.type] || l.type)}</s></td><td><s>dal ${esc(fmtDate(l.startDate))} al ${esc(fmtDate(l.endDate))}</s></td><td>↩️ Annullata dal dipendente</td></tr>`).join("")}</tbody></table></div>` : `<p class="note">Nessuna richiesta.</p>`}
       <h3>🕐 Ultime timbrature</h3>
@@ -6280,6 +6318,7 @@ Digital Valut non ne ha una copia.</p>
     }
     saveJson(PEOPLE_STORE, pe);
     if (state.data) safeRender(); else { renderStaff(); renderPerson(); }
+    if (fer || ferA) void pushFerie((fer || ferA).dataset.ferie || (fer || ferA).dataset.ferieanno);
   });
   $("tStaff").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-staff]");
