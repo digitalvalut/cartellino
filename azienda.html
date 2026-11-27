@@ -4247,7 +4247,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611271032"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611271256"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -5488,16 +5488,20 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
 
   // ---------------------------------------------------------- file Excel per il consulente e invio
   const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  function consultantFile(month = state.month) {
+  const slugOf = (t) => String(t || "").normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+  /** cf = solo quel dipendente (es. assunto o licenziato a meta' mese); senza cf = tutti. */
+  function consultantFile(month = state.month, cf = null) {
     const c = state.company || {};
-    const slug = String(c.name || "azienda").normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "azienda";
-    const bytes = L.buildXlsx(L.consultantSheets({ companyName: c.name, month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }));
-    return { name: `presenze-${slug}-${month}.xlsx`, bytes };
+    const slug = slugOf(c.name) || "azienda", who = cf ? "-" + (slugOf(personName(cf)) || cf) : "";
+    const shifts = cf ? state.shifts.filter((x) => x.cf === cf) : state.shifts, leaves = cf ? countedLeaves().filter((l) => l.cf === cf) : countedLeaves();
+    const bytes = L.buildXlsx(L.consultantSheets({ companyName: c.name, month, shifts, leaves, rules: rules() }));
+    return { name: `presenze-${slug}${who}-${month}.xlsx`, bytes };
   }
-  function payrollFile(month = state.month) {
+  function payrollFile(month = state.month, cf = null) {
     const c = state.company || {};
-    const slug = String(c.name || "azienda").normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "azienda";
-    return { name: `paghe-${slug}-${month}.csv`, text: L.payrollCsv({ month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }) };
+    const slug = slugOf(c.name) || "azienda", who = cf ? "-" + (slugOf(personName(cf)) || cf) : "";
+    const shifts = cf ? state.shifts.filter((x) => x.cf === cf) : state.shifts, leaves = cf ? countedLeaves().filter((l) => l.cf === cf) : countedLeaves();
+    return { name: `paghe-${slug}${who}-${month}.csv`, text: L.payrollCsv({ month, shifts, leaves, rules: rules() }) };
   }
   /**
    * ARCHIVIO DEL MESE nella cartella dei dati: a mese finito, in "Mesi/AAAA-MM mese" ci sono da soli il file
@@ -5537,11 +5541,14 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
   }
   $("xlsxBtn").onclick = () => { if (!state.data) return; const f = consultantFile(); downloadBytes(f.name, f.bytes, XLSX_TYPE); };
   $("payBtn").onclick = () => { if (!state.data) return; const p = payrollFile(); download(p.name, p.text, "text/csv;charset=utf-8"); };
-  $("sendBtn").onclick = async () => {
+  $("sendBtn").onclick = () => sendToConsultant(null);
+  window.__cartellinoFiles = (cf) => ({ excel: consultantFile(state.month, cf).name, paghe: payrollFile(state.month, cf).name }); // test automatici
+  /** Al consulente: tutti (cf = null) oppure un solo dipendente. */
+  async function sendToConsultant(cf) {
     if (!state.data) return;
-    const f = consultantFile(), c = state.company || {}, pay = payrollFile();
-    const subject = `Presenze ${monthLabel(state.month)} - ${c.name || ""}`;
-    const body = `Buongiorno,\nin allegato le presenze di ${monthLabel(state.month)}: il file Excel (ore ordinarie, straordinari, festivi, ferie, malattia e permessi) e il file CSV da importare nel programma paghe (una riga per dipendente, giorno e voce).\n\nCordiali saluti\n${c.name || ""}`;
+    const f = consultantFile(state.month, cf), c = state.company || {}, pay = payrollFile(state.month, cf);
+    const subject = `Presenze ${monthLabel(state.month)} - ${c.name || ""}${cf ? " - " + personName(cf) : ""}`;
+    const body = `Buongiorno,\nin allegato le presenze di ${monthLabel(state.month)}${cf ? " di " + personName(cf) : ""}: il file Excel (ore ordinarie, straordinari, festivi, ferie, malattia e permessi) e il file CSV da importare nel programma paghe (una riga per dipendente, giorno e voce).\n\nCordiali saluti\n${c.name || ""}`;
     // 1) se il computer lo permette: condivisione diretta del file (Posta, Outlook, WhatsApp…)
     try {
       const file = new File([f.bytes], f.name, { type: XLSX_TYPE });
@@ -5569,7 +5576,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     a.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${body}\n\n(Allegati: ${f.name} e ${pay.name}, da importare nel programma paghe)`)}`;
     a.click();
     alert(`Il file ${f.name} è nella cartella Download.\nSi apre l'email per il consulente: allega il file e premi Invia.`);
-  };
+  }
 
   // ---------------------------------------------------------- CARTELLA DEL DIPENDENTE: tutto di una persona, in un posto
   function personName(cf) {
@@ -5646,6 +5653,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${!v.uscito ? `<button class="btn-small" data-act="left" ${ids}>🚪 Non lavora più qui</button>` : ""}
         ${v.nascosto ? `<button class="btn-small" data-act="unhide" ${ids}>Rimetti nell'elenco</button>` : v.uscito ? `<button class="btn-small" data-act="hide" ${ids}>Togli dall'elenco</button>` : ""}
         ${v.invito ? `<button class="btn-small" data-staff="delete" ${ids}>🗑 Elimina</button>` : ""}
+        ${d ? `<button class="btn-small" data-sendone="${esc(cf)}">✉️ Manda solo lui al consulente (${esc(monthLabel(state.month || romeToday().slice(0, 7)))})</button>` : ""}
         <label class="note">Ore al giorno <input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px"></label>
         <label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> Lavora il sabato</label>
         <label class="note">🏖️ Ferie rimaste oggi <input type="number" min="0" max="400" step="0.5" data-ferie="${esc(cf)}" value="${fer ? esc(String(fer.left)) : ""}" placeholder="es. 18" style="width:70px"> giorni</label>
@@ -5657,6 +5665,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
   }
   window.__cartellinoPerson = (cf) => openPerson(cf); // test automatici
   $("staffSearch").addEventListener("input", () => renderStaff());
+  document.addEventListener("click", (e) => { const b = e.target.closest("[data-sendone]"); if (b) void sendToConsultant(b.dataset.sendone); });
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-sfilter]");
     if (!b) return;
