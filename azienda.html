@@ -132,7 +132,7 @@
   #sheetCard .sheethead h2 { margin: 0; }
   body[data-view="qr"] main { display: flex; flex-direction: column; }
   body[data-view="qr"] #sheetCard { order: 1; } body[data-view="qr"] #autoCard { order: 2; } body[data-view="qr"] #places { order: 3; }
-  body[data-view="qr"] #rulesCard { order: 4; } body[data-view="qr"] #sosCard { order: 5; } body[data-view="qr"] #reportLinkCard { order: 6; }
+  body[data-view="qr"] #rulesCard { order: 4; } body[data-view="qr"] #sosCard { order: 5; } body[data-view="qr"] #reportLinkCard { order: 6; } body[data-view="qr"] #moreSettings { order: 8; display: block !important; }
   body[data-view="qr"] #resetBox { order: 7; } body[data-view="qr"] main > footer, body[data-view="qr"] main > .madeby { order: 9; }
   #sheetCard .printrow { display: none; }
   @media screen { #sheetCard .sheet { zoom: .3; border: 1px solid var(--line); border-radius: 20px; padding: 18px; margin: 12px auto 0; max-width: 900px; } }
@@ -143,6 +143,19 @@
   #personCard .pname { font-size: 24px; font-weight: 800; margin: 0; }
   #personCard .ptoday { font-size: 17px; border-radius: 12px; padding: 10px 14px; margin: 14px 0; border: 1px solid var(--line); }
   #personCard .ptoday.in { background: #f0fdf4; border-color: #bbf7d0; } #personCard .ptoday.none { background: #fffbeb; border-color: #fde68a; }
+  /* DASHBOARD SEMPLICE: numeri grandi, ricerca, filtri, riga "tutto salvato" */
+  .bignums { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 6px 0 14px; }
+  .bignum { border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px; background: #fff; cursor: pointer; text-align: left; font: inherit; color: var(--ink); }
+  .bignum .n { font-size: 34px; font-weight: 800; margin-right: 6px; }
+  .bignum.on { border-color: var(--brand, #6d28d9); box-shadow: 0 0 0 3px rgba(109,40,217,.15); }
+  .bignum.g .n { color: #15803d; } .bignum.r .n { color: #b91c1c; } .bignum.y .n { color: #b45309; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 10px; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; background: #fff; cursor: pointer; font: inherit; font-size: 14px; }
+  .chip.on { background: #6d28d9; color: #fff; border-color: #6d28d9; }
+  #saveBar { margin: 0 0 10px; padding: 8px 14px; border-radius: 12px; font-size: 14px; font-weight: 600; }
+  #saveBar.ok { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+  #saveBar.bad { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; cursor: pointer; }
+  #moreSettings > summary { cursor: pointer; font-weight: 800; font-size: 17px; }
   #personCard .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 8px 0 16px; }
   #personCard .tile { border: 1px solid var(--line); border-radius: 14px; padding: 12px; text-align: center; }
   #personCard .tile b { display: block; font-size: 24px; } #personCard .tile span { font-size: 13px; color: var(--ink2); }
@@ -212,6 +225,7 @@
   <button data-view="qr">⚙️ Impostazioni</button>
 </nav>
 <main>
+  <div id="saveBar" class="hidden noprint"></div>
   <section class="card hidden" id="errorBox" role="alert" style="border-color:#fca5a5;background:#fef2f2">
     <h2 style="color:var(--bad)">C'è un problema</h2>
     <p class="muted" id="errorText" style="margin:0"></p>
@@ -326,6 +340,94 @@
     </div>
   </section>
 
+
+
+  <section class="card hidden noprint" id="todayCard">
+    <h2 id="todayTitle">📋 Oggi</h2>
+    <div class="bignums" id="todayCount"></div>
+    <ul id="todayList"></ul>
+    <p class="note" id="todayNote" style="margin:8px 0 0"></p>
+  </section>
+
+  <section class="card hidden noprint" id="autoNews" style="border-color:#86efac;background:#f0fdf4">
+    <div class="row" style="justify-content:space-between"><b>📬 Arrivato in automatico</b><button class="btn-small" id="autoNewsClose">Ho visto</button></div>
+    <ul id="autoNewsList"></ul>
+  </section>
+
+  <section class="card hidden noprint" id="startCard">
+    <h2>🚀 Primi passi</h2>
+    <p class="muted" style="margin:0">Poche cose da fare una volta sola. Si spuntano da sole.</p>
+    <ol id="startList"></ol>
+  </section>
+
+  <div class="card hidden noprint" id="folderWarn" style="border:2px solid #f59e0b;background:#fffbeb">
+    ⚠️ <b>I tuoi dati sono solo in questo browser.</b> Collega la <b>cartella dei dati</b> (Desktop o Google Drive): se il computer si rompe non perdi niente.
+    <button class="primary btn-small" id="folderWarnBtn">📁 Collega adesso</button>
+  </div>
+
+  <section class="card hidden noprint" id="folderCard">
+    <h2>📁 Cartella dei dati</h2>
+    <p class="muted">Tutto si salva <b>da solo</b> in questa cartella (report, decisioni, dipendenti, cartelli, impostazioni), chiuso con la tua password.
+      Su un altro computer: "Apri la cartella dei dati" e la password, e ritrovi tutto.</p>
+    <p id="folderState"></p>
+    <button class="primary" id="folderPick">📁 Scegli la cartella</button>
+    <button class="hidden" id="folderReconnect">🔓 Ricollega la cartella</button>
+    <p class="note">Gli allegati delle email dei dipendenti: salvali nella sottocartella <b>"Report arrivati"</b>. All'apertura li leggo da solo.</p>
+  </section>
+
+  <section class="card hidden noprint" id="staffCard">
+    <h2>👷 I tuoi dipendenti</h2>
+    <details id="addStaff" style="border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0">
+    <summary style="cursor:pointer;font-weight:800;font-size:17px">➕ Aggiungi un dipendente</summary>
+    <p class="muted">Scrivi i dati e mandagli l'<b>invito</b> (WhatsApp o QR): lo tocca e Cartellino è già pronto, con i suoi dati.</p>
+    <div class="row" style="align-items:flex-end">
+      <label class="note">Nome<br><input id="newNome" autocomplete="off" style="width:140px"></label>
+      <label class="note">Cognome<br><input id="newCognome" autocomplete="off" style="width:150px"></label>
+      <label class="note">Codice fiscale<br><input id="newCf" autocomplete="off" maxlength="20" style="width:190px;text-transform:uppercase"></label>
+      <label class="note">Mansione<br><input id="newMansione" list="taskList" autocomplete="off" style="width:170px"></label>
+      <button class="primary big" id="newInvite">➕ Crea e invia l'invito</button>
+    </div>
+    <div class="row" style="margin:6px 0;gap:18px">
+      <label class="note">Ore al giorno <input id="newOre" type="number" min="1" max="24" step="0.5" placeholder="8" style="width:70px"></label>
+      <label class="note"><input type="checkbox" id="newSabato"> Lavora il sabato</label>
+      <label class="note"><input type="checkbox" id="newNoPhone"> <b>Senza telefono</b> (le sue ore le scrivi tu)</label>
+    </div>
+    </details>
+    <details id="manualBox" style="border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0">
+      <summary style="cursor:pointer;font-weight:700">✍️ Scrivi ore a mano (dipendente senza telefono, telefono rotto…)</summary>
+      <div class="row" style="align-items:flex-end;margin-top:8px">
+        <label class="note">Dipendente<br><select id="manCf" style="min-width:180px"></select></label>
+        <label class="note">Giorno<br><input id="manDate" type="date"></label>
+        <label class="note">Entrata<br><input id="manIn" type="time" value="08:00"></label>
+        <label class="note">Uscita<br><input id="manOut" type="time" value="17:00"></label>
+        <label class="note">Motivo<br><input id="manWhy" placeholder="es. senza telefono" style="width:180px"></label>
+        <button class="primary" id="manAdd">Aggiungi</button>
+      </div>
+      <p class="note">Resta sempre segnato "✍️ scritto dal datore" (anche nel file per il consulente): non è una timbratura del dipendente.</p>
+      <p id="manError" class="bad" style="min-height:1.2em"></p>
+    </details>
+    <datalist id="taskList"><option>Operaio Edile</option><option>Capocantiere</option><option>Elettricista</option><option>Termoidraulico</option><option>Impiegato Amministrativo</option><option>Operatore Sanitario</option><option>Manovale</option></datalist>
+    <p id="newError" class="bad" style="min-height:1.2em"></p>
+    <input id="staffSearch" type="search" placeholder="🔍 Cerca un dipendente (nome o codice fiscale)" autocomplete="off" style="width:100%;max-width:520px;font-size:17px">
+    <div class="chips" id="staffFilters"></div>
+    <div class="tablewrap"><table id="tStaff"></table></div>
+  </section>
+
+  <section class="card hidden noprint" id="personCard">
+    <p style="margin:0 0 10px"><a href="#" id="personBack">‹ Tutti i dipendenti</a></p>
+    <div id="personBody"></div>
+  </section>
+
+  <section class="card noprint" id="emptyHint" style="text-align:center">
+    <h2>Ancora nessun report</h2>
+    <p class="muted">Quando i dipendenti ti mandano i report, importali da <b>📥 Report</b>: qui comparirà tutto.</p>
+    <button class="primary" data-goview="report">📥 Vai ai report</button>
+  </section>
+
+
+
+  <details class="card noprint hidden" id="moreSettings">
+    <summary>⚙️ Altre impostazioni (luoghi di lavoro, report a mano, copie)</summary>
   <section class="card hidden noprint" id="places">
     <h2>📍 Luoghi di lavoro</h2>
     <p class="sec-note">Un cartello per ogni sede, cantiere o mezzo. Nessuno lo può falsificare.</p>
@@ -360,84 +462,6 @@
       <div class="tablewrap"><table id="tPlaces"></table></div>
     </div>
   </section>
-
-  <section class="card hidden noprint" id="todayCard">
-    <h2 id="todayTitle">📋 Oggi</h2>
-    <p id="todayCount"></p>
-    <ul id="todayList"></ul>
-    <p class="note" id="todayNote" style="margin:8px 0 0"></p>
-  </section>
-
-  <section class="card hidden noprint" id="autoNews" style="border-color:#86efac;background:#f0fdf4">
-    <div class="row" style="justify-content:space-between"><b>📬 Arrivato in automatico</b><button class="btn-small" id="autoNewsClose">Ho visto</button></div>
-    <ul id="autoNewsList"></ul>
-  </section>
-
-  <section class="card hidden noprint" id="startCard">
-    <h2>🚀 Primi passi</h2>
-    <p class="muted" style="margin:0">Poche cose da fare una volta sola. Si spuntano da sole.</p>
-    <ol id="startList"></ol>
-  </section>
-
-  <div class="card hidden noprint" id="folderWarn" style="border:2px solid #f59e0b;background:#fffbeb">
-    ⚠️ <b>I tuoi dati sono solo in questo browser.</b> Collega la <b>cartella dei dati</b> (Desktop o Google Drive): se il computer si rompe non perdi niente.
-    <button class="primary btn-small" id="folderWarnBtn">📁 Collega adesso</button>
-  </div>
-
-  <section class="card hidden noprint" id="folderCard">
-    <h2>📁 Cartella dei dati</h2>
-    <p class="muted">Tutto si salva <b>da solo</b> in questa cartella (report, decisioni, dipendenti, cartelli, impostazioni), chiuso con la tua password.
-      Su un altro computer: "Apri la cartella dei dati" e la password, e ritrovi tutto.</p>
-    <p id="folderState"></p>
-    <button class="primary" id="folderPick">📁 Scegli la cartella</button>
-    <button class="hidden" id="folderReconnect">🔓 Ricollega la cartella</button>
-    <p class="note">Gli allegati delle email dei dipendenti: salvali nella sottocartella <b>"Report arrivati"</b>. All'apertura li leggo da solo.</p>
-  </section>
-
-  <section class="card hidden noprint" id="staffCard">
-    <h2>👷 I tuoi dipendenti</h2>
-    <p class="muted">Solo tu crei i dipendenti: scrivi i dati e mandagli l'<b>invito</b> (WhatsApp o QR). Lui lo tocca e Cartellino è già pronto, con i suoi dati.</p>
-    <div class="row" style="align-items:flex-end">
-      <label class="note">Nome<br><input id="newNome" autocomplete="off" style="width:140px"></label>
-      <label class="note">Cognome<br><input id="newCognome" autocomplete="off" style="width:150px"></label>
-      <label class="note">Codice fiscale<br><input id="newCf" autocomplete="off" maxlength="20" style="width:190px;text-transform:uppercase"></label>
-      <label class="note">Mansione<br><input id="newMansione" list="taskList" autocomplete="off" style="width:170px"></label>
-      <button class="primary big" id="newInvite">➕ Crea e invia l'invito</button>
-    </div>
-    <div class="row" style="margin:6px 0;gap:18px">
-      <label class="note">Ore al giorno <input id="newOre" type="number" min="1" max="24" step="0.5" placeholder="8" style="width:70px"></label>
-      <label class="note"><input type="checkbox" id="newSabato"> Lavora il sabato</label>
-      <label class="note"><input type="checkbox" id="newNoPhone"> <b>Senza telefono</b> (le sue ore le scrivi tu)</label>
-    </div>
-    <details id="manualBox" style="border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0">
-      <summary style="cursor:pointer;font-weight:700">✍️ Scrivi ore a mano (dipendente senza telefono, telefono rotto…)</summary>
-      <div class="row" style="align-items:flex-end;margin-top:8px">
-        <label class="note">Dipendente<br><select id="manCf" style="min-width:180px"></select></label>
-        <label class="note">Giorno<br><input id="manDate" type="date"></label>
-        <label class="note">Entrata<br><input id="manIn" type="time" value="08:00"></label>
-        <label class="note">Uscita<br><input id="manOut" type="time" value="17:00"></label>
-        <label class="note">Motivo<br><input id="manWhy" placeholder="es. senza telefono" style="width:180px"></label>
-        <button class="primary" id="manAdd">Aggiungi</button>
-      </div>
-      <p class="note">Resta sempre segnato "✍️ scritto dal datore" (anche nel file per il consulente): non è una timbratura del dipendente.</p>
-      <p id="manError" class="bad" style="min-height:1.2em"></p>
-    </details>
-    <datalist id="taskList"><option>Operaio Edile</option><option>Capocantiere</option><option>Elettricista</option><option>Termoidraulico</option><option>Impiegato Amministrativo</option><option>Operatore Sanitario</option><option>Manovale</option></datalist>
-    <p id="newError" class="bad" style="min-height:1.2em"></p>
-    <div class="tablewrap"><table id="tStaff"></table></div>
-  </section>
-
-  <section class="card hidden noprint" id="personCard">
-    <p style="margin:0 0 10px"><a href="#" id="personBack">‹ Tutti i dipendenti</a></p>
-    <div id="personBody"></div>
-  </section>
-
-  <section class="card noprint" id="emptyHint" style="text-align:center">
-    <h2>Ancora nessun report</h2>
-    <p class="muted">Quando i dipendenti ti mandano i report, importali da <b>📥 Report</b>: qui comparirà tutto.</p>
-    <button class="primary" data-goview="report">📥 Vai ai report</button>
-  </section>
-
   <section class="card noprint" id="reportLinkCard" style="display:none">
     <div class="row" style="justify-content:space-between">
       <div><h2 style="margin:0">📥 Report a mano, cartella dei dati e copie</h2>
@@ -445,7 +469,7 @@
       <button data-goview="report">Apri</button>
     </div>
   </section>
-
+  </details>
   <section class="card hidden noprint" id="autoCard">
     <h2>📬 Ricevi timbrature e richieste in automatico</h2>
     <p class="sec-note">Timbrature e richieste arrivano <b>da sole</b>, e le tue risposte arrivano da sole ai dipendenti. Niente report, niente WhatsApp.
@@ -479,7 +503,8 @@
     <div class="row" id="monthBar" style="justify-content:space-between;align-items:center">
       <label style="font-size:20px;font-weight:800">📅 <select id="month" style="width:auto;font-size:18px;font-weight:700"></select></label>
       <div class="row noprint" style="align-items:center">
-        <button class="primary big" id="sendBtn">✉️ Invia al consulente</button>
+        <button class="primary big" id="sendBtn">✉️ Manda TUTTO al consulente</button>
+        <span class="note">Altri formati:</span>
         <button class="btn-small" id="xlsxBtn">📊 Scarica Excel</button>
         <button class="btn-small" id="payBtn" title="Da importare nel programma paghe del consulente (Buffetti, Zucchetti, TeamSystem...)">📄 File per programma paghe</button>
         <button class="btn-small" id="pdfBtn">📄 PDF</button>
@@ -496,7 +521,7 @@
     </div>
     <div class="panel" data-panel="dash"><div id="dash"></div></div>
     <div class="panel hidden" data-panel="summary"><div class="tablewrap"><table id="tSummary"></table></div>
-      <p class="note">Ore calcolate solo su turni completi (ENTRATA + USCITA) con firma valida. Le assenze sono in giorni di calendario (quelle rifiutate non contano).</p></div>
+      <p class="note">Ore calcolate solo su turni completi (ENTRATA + USCITA) con firma valida. Le assenze sono in giorni di calendario (quelle rifiutate non contano). Ordinarie, festive e notturne: nel file Excel per il consulente.</p></div>
     <div class="panel hidden" data-panel="detail"><div class="tablewrap"><table id="tDetail"></table></div></div>
     <div class="panel hidden" data-panel="leaves"><div class="tablewrap"><table id="tLeaves"></table></div>
       <p class="note">Le note sulla malattia sono dati sanitari: mostrale solo a chi gestisce il personale.</p></div>
@@ -4222,7 +4247,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611270908"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611270955"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4639,6 +4664,7 @@ var qrcode = function() {
     $("results").classList.remove("hidden");
     safeRender();
     renderToday();
+    void archiveMonths();
   }
   function safeRender() {
     try { renderStaff(); } catch { /* niente */ }
@@ -4792,8 +4818,8 @@ var qrcode = function() {
     const legend = '<div class="legend"><span style="--c:#bbf7d0">Lavorato</span><span style="--c:#fde68a">Da controllare (A)</span><span style="--c:#bfdbfe">Ferie (F)</span><span style="--c:#fecaca">Malattia (M)</span><span style="--c:#e9d5ff">Permesso (P)</span></div>';
 
     $("dash").innerHTML = todoHtml +
-      `<h3 style="font-size:17px;margin:4px 0 10px">👷 Dipendenti</h3><div class="people">${cards || '<p class="empty">Nessun dipendente.</p>'}</div>` +
-      `<h3 style="font-size:17px;margin:4px 0 6px">📅 Calendario del mese</h3>${legend}<div class="tablewrap"><table class="cal">${head}${rows}</table></div>`;
+      `<details class="more"${document.body.dataset.view === "oggi" ? "" : " open"}><summary style="cursor:pointer;font-weight:800;font-size:17px;margin:8px 0">👷 Tutti i dipendenti</summary><div class="people">${cards || '<p class="empty">Nessun dipendente.</p>'}</div></details>` +
+      `<details class="more"${document.body.dataset.view === "oggi" ? "" : " open"}><summary style="cursor:pointer;font-weight:800;font-size:17px;margin:8px 0">📅 Calendario del mese</summary>${legend}<div class="tablewrap"><table class="cal">${head}${rows}</table></div></details>`;
   }
 
   function renderPeople() {
@@ -4846,11 +4872,10 @@ var qrcode = function() {
     ].map(([n, l], i) => `<div class="stat"><div class="n ${i === 3 && n ? "bad" : ""}">${esc(n)}</div><div class="l">${esc(l)}</div></div>`).join("");
 
     table($("tSummary"),
-      [{ t: "Dipendente" }, { t: "Codice Fiscale" }, { t: "Giorni lavorati", num: 1 }, { t: "Ore totali", num: 1 }, { t: "Ordinarie", num: 1 }, { t: "Straordinario", num: 1 },
-       { t: "Festive", num: 1 }, { t: "di cui notturne", num: 1 }, { t: "Ferie (gg)", num: 1 }, { t: "Malattia (gg)", num: 1 }, { t: "Perm. sindacali (gg)", num: 1 }, { t: "Da controllare", num: 1 }, { t: "Ore confermate dal dipendente" }],
-      summary.map((r) => ({ cls: r.anomalies ? "anom" : "", cells: [`<b>${esc(r.name)}</b>`, esc(r.cf), r.days, L.formatMinutes(r.minutes), L.formatMinutes(r.ord),
-        r.str ? `<b>${L.formatMinutes(r.str)}</b>` : "", r.fest ? L.formatMinutes(r.fest) : "", r.nott ? L.formatMinutes(r.nott) : "",
-        r.ferie || "", r.malattia || "", r.sindacale || "", r.anomalies ? `<span class="pill warn">${r.anomalies}</span>` : "", confirmCell(confirmOf(r.cf, m))] })),
+      [{ t: "Dipendente" }, { t: "Giorni lavorati", num: 1 }, { t: "Ore lavorate", num: 1 }, { t: "di cui straordinari", num: 1 },
+       { t: "Ferie (gg)", num: 1 }, { t: "Malattia (gg)", num: 1 }, { t: "Permessi (gg)", num: 1 }, { t: "Ore confermate" }],
+      summary.map((r) => ({ cls: r.anomalies ? "anom" : "", cells: [`<b>${esc(r.name)}</b>${r.anomalies ? ` <span class="pill warn" title="turni da controllare">⚠️ ${r.anomalies}</span>` : ""}`, r.days, L.formatMinutes(r.minutes),
+        r.str ? `<b>${L.formatMinutes(r.str)}</b>` : "", r.ferie || "", r.malattia || "", r.sindacale || "", confirmCell(confirmOf(r.cf, m))] })),
       "Nessun dato in questo mese.");
 
     table($("tDetail"),
@@ -5463,17 +5488,45 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
 
   // ---------------------------------------------------------- file Excel per il consulente e invio
   const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  function consultantFile() {
+  function consultantFile(month = state.month) {
     const c = state.company || {};
     const slug = String(c.name || "azienda").normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "azienda";
-    const bytes = L.buildXlsx(L.consultantSheets({ companyName: c.name, month: state.month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }));
-    return { name: `presenze-${slug}-${state.month}.xlsx`, bytes };
+    const bytes = L.buildXlsx(L.consultantSheets({ companyName: c.name, month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }));
+    return { name: `presenze-${slug}-${month}.xlsx`, bytes };
   }
-  function payrollFile() {
+  function payrollFile(month = state.month) {
     const c = state.company || {};
     const slug = String(c.name || "azienda").normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "azienda";
-    return { name: `paghe-${slug}-${state.month}.csv`, text: L.payrollCsv({ month: state.month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }) };
+    return { name: `paghe-${slug}-${month}.csv`, text: L.payrollCsv({ month, shifts: state.shifts, leaves: countedLeaves(), rules: rules() }) };
   }
+  /**
+   * ARCHIVIO DEL MESE nella cartella dei dati: a mese finito, in "Mesi/AAAA-MM mese" ci sono da soli il file
+   * Excel e quello per il programma paghe. Se arrivano dati in ritardo per quel mese, i file si rifanno.
+   */
+  const ARCH_STORE = "cartellino.archivio";
+  async function archiveMonths() {
+    if (!FOLDER || !FOLDER.ok || !FOLDER.handle || !state.data || !state.shifts) return;
+    const done = loadJson(ARCH_STORE), cur = romeToday().slice(0, 7), counted = countedLeaves();
+    const months = new Map();
+    for (const s of state.shifts) months.set(s.date.slice(0, 7), (months.get(s.date.slice(0, 7)) || 0) + 1);
+    for (const l of counted) months.set(l.startDate.slice(0, 7), (months.get(l.startDate.slice(0, 7)) || 0) + 1);
+    let changed = false;
+    for (const [m, n] of [...months].sort()) {
+      const sign = `${n}|${JSON.stringify(rules())}`;
+      if (m >= cur || done[m] === sign) continue;
+      try {
+        const root = await FOLDER.handle.getDirectoryHandle("Mesi", { create: true });
+        const dir = await root.getDirectoryHandle(`${m} ${monthLabel(m)}`, { create: true });
+        const f = consultantFile(m), p = payrollFile(m);
+        await fsWrite(dir, f.name, f.bytes);
+        await fsWrite(dir, p.name, p.text);
+        done[m] = sign;
+        changed = true;
+      } catch { /* si riprova al prossimo aggiornamento */ }
+    }
+    if (changed) saveJson(ARCH_STORE, done);
+  }
+  window.__cartellinoArchive = () => archiveMonths(); // test automatici
   function downloadBytes(name, bytes, type) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type }));
@@ -5591,6 +5644,8 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${!v.senzaTelefono && !v.uscito && v.invito ? `<button class="btn-small" data-staff="resend" ${ids}>📨 Rimanda invito</button>` : ""}
         ${!v.uscito ? `<button class="btn-small" data-act="task" ${ids}>✏️ Cambia mansione</button>` : ""}
         ${!v.uscito ? `<button class="btn-small" data-act="left" ${ids}>🚪 Non lavora più qui</button>` : ""}
+        ${v.nascosto ? `<button class="btn-small" data-act="unhide" ${ids}>Rimetti nell'elenco</button>` : v.uscito ? `<button class="btn-small" data-act="hide" ${ids}>Togli dall'elenco</button>` : ""}
+        ${v.invito ? `<button class="btn-small" data-staff="delete" ${ids}>🗑 Elimina</button>` : ""}
         <label class="note">Ore al giorno <input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px"></label>
         <label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> Lavora il sabato</label>
         <label class="note">🏖️ Ferie rimaste oggi <input type="number" min="0" max="400" step="0.5" data-ferie="${esc(cf)}" value="${fer ? esc(String(fer.left)) : ""}" placeholder="es. 18" style="width:70px"> giorni</label>
@@ -5601,6 +5656,13 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     $("personCard").classList.remove("hidden");
   }
   window.__cartellinoPerson = (cf) => openPerson(cf); // test automatici
+  $("staffSearch").addEventListener("input", () => renderStaff());
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-sfilter]");
+    if (!b) return;
+    state.staffFilter = state.staffFilter === b.dataset.sfilter ? "" : b.dataset.sfilter;
+    renderStaff();
+  });
 
   // ---------------------------------------------------------- OGGI: chi c'è e chi no (a colpo d'occhio)
   const LEAVE_WORD = { FERIE: "in ferie", MALATTIA: "in malattia", PERMESSO_SINDACALE_LEGGE_300_70: "in permesso sindacale" };
@@ -5675,20 +5737,42 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     for (const [cf, who] of staff) {
       const st = personToday(cf, who.noPhone);
       if (st.kind === "in") nIn++; else if (st.kind === "out") nOut++; else if (st.kind === "away") nAway++; else if (st.kind === "late") { nLate++; lateNames.push([cf, who.name]); } else nNone++;
-      rows.push({ order: st.order, name: who.name, html: `<li class="${st.cls}"><span>${st.icon}</span><span class="who"><a href="#" data-person="${esc(cf)}">${esc(who.name)}</a></span><span>${st.text}</span></li>` });
+      rows.push({ kind: st.kind, order: st.order, name: who.name, html: `<li class="${st.cls}"><span>${st.icon}</span><span class="who"><a href="#" data-person="${esc(cf)}">${esc(who.name)}</a></span><span>${st.text}</span></li>` });
     }
     rows.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
     const [y, m, g] = today.split("-");
     $("todayTitle").textContent = `📋 Oggi, ${new Date(+y, +m - 1, +g).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}`;
     lateAlert(today, lateNames);
-    $("todayCount").innerHTML = [nLate && `⚠️ <b>${nLate}</b> ${nLate === 1 ? "in ritardo" : "in ritardo"}`, nIn && `🟢 <b>${nIn}</b> al lavoro`, nOut && `🔴 <b>${nOut}</b> ${nOut === 1 ? "uscito" : "usciti"}`, nNone && `⚪ <b>${nNone}</b> ${nNone === 1 ? "non ha timbrato" : "non hanno timbrato"}`, nAway && `🏖️ <b>${nAway}</b> ${nAway === 1 ? "assente" : "assenti"}`].filter(Boolean).join(" · ");
-    $("todayList").innerHTML = rows.map((r) => r.html).join("");
+    // 3 NUMERI GRANDI: un clic mostra solo quelle persone (di nuovo = tutti)
+    const nTodo = todoCount(), f = state.todayFilter || "";
+    const big = (key, cls, n, label) => `<button type="button" class="bignum ${cls}${f === key ? " on" : ""}" data-tfilter="${key}"><span class="n">${n}</span> ${label}</button>`;
+    $("todayCount").innerHTML = big("in", "g", nIn, "al lavoro")
+      + big("none", nNone + nLate ? "r" : "", nNone + nLate, nNone + nLate === 1 ? "non ha timbrato" : "non hanno timbrato")
+      + big("todo", nTodo ? "y" : "", nTodo, "da decidere")
+      + `<p class="note" style="grid-column:1/-1;margin:0">${[nOut && `🔴 ${nOut} ${nOut === 1 ? "uscito" : "usciti"}`, nAway && `🏖️ ${nAway} ${nAway === 1 ? "assente" : "assenti"}`, nLate && `⚠️ ${nLate} in ritardo`].filter(Boolean).join(" · ")}</p>`;
+    const show = (k) => !f || f === "todo" || (f === "in" ? k === "in" : k === "none" || k === "late");
+    $("todayList").innerHTML = rows.filter((r) => show(r.kind)).map((r) => r.html).join("") || `<li class="note">Nessuno.</li>`;
     $("todayNote").innerHTML = state.company.cassetta
       ? `📬 Si aggiorna da solo ogni minuto.${AUTO.lastAt ? " Ultimo aggiornamento: " + esc(new Date(AUTO.lastAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })) + "." : ""}`
       : `Si aggiorna quando arrivano i report. Per vederlo <b>in tempo reale</b> accendi "📬 Ricevi tutto in automatico" in Impostazioni.`;
     card.classList.remove("hidden");
   }
   window.__cartellinoToday = () => renderToday(); // test automatici
+  /** Quante cose deve decidere il datore (ferie/permessi, uscite dimenticate). */
+  function todoCount() {
+    const d = state.data;
+    if (!d) return 0;
+    const dec = decisions(), pe = people(), shown = (cf) => !(pe[cf] && pe[cf].nascosto);
+    return d.leaves.filter((l) => l.valid && shown(l.cf) && !dec[l.id]).length + d.corrections.filter((c) => c.valid && shown(c.cf) && c.tipo === "USCITA" && !dec[c.id]).length;
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tfilter]");
+    if (!b) return;
+    const k = b.dataset.tfilter;
+    state.todayFilter = state.todayFilter === k ? "" : k;
+    renderToday();
+    if (k === "todo") { const t = $("dash"); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  });
   window.__cartellinoView = (v) => setView(v); // test automatici
 
   // ---------------------------------------------------------- avviso breve in basso
@@ -6103,7 +6187,21 @@ Digital Valut non ne ha una copia.</p>
     try { await folderSaveHandle(h); await attachFolder(h); }
     catch (e) { FOLDER.ok = false; FOLDER.error = e.message || "Errore"; renderFolder(); }
   }
+  function renderSaveBar() {
+    const bar = $("saveBar");
+    if (!bar) return;
+    if (!state.company || !state.key) { bar.classList.add("hidden"); return; }
+    bar.classList.remove("hidden");
+    if (FOLDER.ok && !FOLDER.error) {
+      bar.className = "ok noprint";
+      bar.textContent = `💾 Tutto salvato nella cartella «${(FOLDER.handle && FOLDER.handle.name) || "cartella"}»${FOLDER.savedAt ? " · alle " + FOLDER.savedAt.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : ""}`;
+    } else {
+      bar.className = "bad noprint";
+      bar.textContent = FOLDER.needPermission ? "🔓 Tocca qui per ricollegare la cartella dei dati (Windows lo chiede per sicurezza)" : "⚠️ Non sto salvando nella cartella del computer: tocca qui per collegarla";
+    }
+  }
   function renderFolder() {
+    renderSaveBar();
     const el = $("folderState");
     if (!el || !state.company) return;
     $("folderCard").classList.remove("hidden");
@@ -6118,6 +6216,7 @@ Digital Valut non ne ha una copia.</p>
     else el.innerHTML = `<span class="bad">⚠️ Non collegata: i dati sono solo in questo browser.</span>`;
   }
   $("folderPick").onclick = chooseFolder;
+  $("saveBar").onclick = () => { if ($("saveBar").classList.contains("bad")) $("folderWarnBtn").onclick(); };
   $("folderWarnBtn").onclick = async () => {
     if (FOLDER.needPermission && FOLDER.handle) return $("folderReconnect").onclick();
     await chooseFolder();
@@ -6179,9 +6278,28 @@ Digital Valut non ne ha una copia.</p>
     // anche chi si è registrato da solo (vecchie aziende senza inviti) compare qui
     const extra = state.data ? [...state.data.names.entries()].filter(([cf]) => !(pe[cf] && pe[cf].invito)).map(([cf, name]) => [cf, { ...(pe[cf] || {}), invito: { cognome: name, nome: "", mansione: "" }, selfReg: true }]) : [];
     const all = rows.concat(extra);
+    $("addStaff").open = $("addStaff").open || !all.length; // nessun dipendente: il modulo e' gia' aperto
+    // filtri: tutti / al lavoro / assenti / ore da recuperare / ore non confermate
+    const FILTERS = [["", "Tutti"], ["lavoro", "🟢 Al lavoro"], ["assenti", "⚪ Non timbrato o assenti"], ["recuperare", "🔴 Ore da recuperare"], ["nonconf", "✋ Ore non confermate"]];
+    const sf = state.staffFilter || "";
+    $("staffFilters").innerHTML = all.length > 3 ? FILTERS.map(([k, t]) => `<button type="button" class="chip${sf === k ? " on" : ""}" data-sfilter="${k}">${t}</button>`).join("") : "";
+    $("staffSearch").classList.toggle("hidden", all.length <= 3);
+    const q = String($("staffSearch").value || "").trim().toLowerCase();
+    const prevM = (() => { const t = romeToday(); return new Date(Date.UTC(Number(t.slice(0, 4)), Number(t.slice(5, 7)) - 2, 1)).toISOString().slice(0, 7); })();
+    const pass = ([cf, v]) => {
+      if (q && !`${v.invito.cognome} ${v.invito.nome} ${v.invito.nome} ${v.invito.cognome} ${cf}`.toLowerCase().includes(q)) return false;
+      if (!sf) return true;
+      if (v.uscito || v.nascosto) return false;
+      const k = personToday(cf, !!v.senzaTelefono).kind;
+      if (sf === "lavoro") return k === "in";
+      if (sf === "assenti") return k !== "in" && k !== "out";
+      if (sf === "recuperare") { const b = balanceOf(cf); return !!b && (b.banca != null ? b.banca : b.mese) <= -15; }
+      if (sf === "nonconf") return !!(state.data && state.data.lastReport.has(cf)) && !confirmOf(cf, prevM);
+      return true;
+    };
     table($("tStaff"),
-      [{ t: "Dipendente" }, { t: "Mansione" }, { t: "Orario" }, { t: "Stato" }, { t: "" }],
-      all.map(([cf, v]) => {
+      [{ t: "Dipendente" }, { t: "Oggi" }, { t: "Ferie" }, { t: "Stato" }, { t: "" }],
+      all.filter(pass).map(([cf, v]) => {
         const ids = `data-cf="${esc(cf)}"`;
         const last = state.data && state.data.lastReport.get(cf);
         const stato = v.nascosto ? `<span class="pill warn">Tolto dall'elenco</span>`
@@ -6189,19 +6307,14 @@ Digital Valut non ne ha una copia.</p>
           : v.senzaTelefono ? `<span class="pill warn">📝 Senza telefono</span>`
           : active.has(cf) ? `<span class="pill ok">✅ Attivo</span>${last ? `<br><span class="note">ultimo invio ${esc(fmtDateTime(last))}</span>` : ""}`
           : `<span class="pill warn">⏳ Invito mandato</span>`;
-        const btns = [
-          !v.senzaTelefono && !v.uscito && !v.selfReg ? `<button class="btn-small" data-staff="resend" ${ids}>📨 Rimanda invito</button>` : "",
-          !v.uscito ? `<button class="btn-small" data-act="task" ${ids}>✏️ Mansione</button>` : "",
-          !v.uscito ? `<button class="btn-small" data-act="left" ${ids}>🚪 Non lavora più qui</button>` : "",
-          v.nascosto ? `<button class="btn-small" data-act="unhide" ${ids}>Rimetti nell'elenco</button>` : v.uscito || v.selfReg ? `<button class="btn-small" data-act="hide" ${ids}>Togli dall'elenco</button>` : "",
-          !v.selfReg ? `<button class="btn-small" data-staff="delete" ${ids}>🗑 Elimina</button>` : "",
-        ].filter(Boolean).join(" ");
+        const today = v.uscito || v.nascosto ? "" : personToday(cf, !!v.senzaTelefono);
+        const fer = ferieOf(cf);
         return { cls: v.uscito || v.nascosto ? "invalid" : "", cells: [
-          `<a href="#" data-person="${esc(cf)}"><b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b></a> ${saldoPill(cf)}<br><span class="note">${esc(cf)}</span>`,
-          esc(v.mansione || v.invito.mansione || (state.data ? [...state.data.attendances].reverse().find((a) => a.cf === cf && a.task)?.task || "" : "")) + (v.mansioneAt ? ` <span class="pill warn">cambiata</span>` : ""),
-          `<input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:64px" title="Ore al giorno (es. 4 per un part-time)"> <span class="note">ore</span><br><label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> sabato</label>`,
+          `<a href="#" data-person="${esc(cf)}"><b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b></a> ${saldoPill(cf)}<br><span class="note">${esc(v.mansione || v.invito.mansione || (state.data ? [...state.data.attendances].reverse().find((a) => a.cf === cf && a.task)?.task || "" : ""))}${v.mansioneAt ? " (cambiata)" : ""} · ${esc(cf)}</span>`,
+          today ? `${today.icon} ${today.text}` : "",
+          fer ? `🏖️ ${fer.left}` : "",
           stato,
-          btns,
+          `<button class="btn-small" data-person="${esc(cf)}">Apri ›</button>`,
         ] };
       }),
       "Nessun dipendente: crea il primo qui sopra.");
@@ -6320,7 +6433,7 @@ Digital Valut non ne ha una copia.</p>
     if (state.data) safeRender(); else { renderStaff(); renderPerson(); }
     if (fer || ferA) void pushFerie((fer || ferA).dataset.ferie || (fer || ferA).dataset.ferieanno);
   });
-  $("tStaff").addEventListener("click", async (e) => {
+  document.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-staff]");
     if (!b) return;
     const cf = b.dataset.cf, pe = people(), v = pe[cf];
