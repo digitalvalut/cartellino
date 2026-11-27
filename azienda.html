@@ -3527,12 +3527,18 @@ var qrcode = function() {
     if (r && r.sabatoPer && typeof r.sabatoPer === "object") {
       for (const [cf, v] of Object.entries(r.sabatoPer)) if (typeof v === "boolean") sabatoPer[cf] = v;
     }
+    // straordinari in BANCA ORE (si recuperano, non si pagano) per singolo dipendente: { cf: true }
+    const bancaOre = {};
+    if (r && r.bancaOre && typeof r.bancaOre === "object") {
+      for (const [cf, v] of Object.entries(r.bancaOre)) if (v === true) bancaOre[cf] = true;
+    }
     return {
       oreGiorno: o > 0 && o <= 24 ? o : DEFAULT_RULES.oreGiorno,
       sabato: !!(r && r.sabato),
       patrono: r && /^\d\d-\d\d$/.test(r.patrono || "") ? r.patrono : "",
       orePer,
       sabatoPer,
+      bancaOre,
     };
   }
   /** Domenica di Pasqua (calendario gregoriano): [mese, giorno]. */
@@ -3620,6 +3626,28 @@ var qrcode = function() {
       }
     }
     return out;
+  }
+
+  /**
+   * SALDO ORE di un dipendente tra due date (incluse): ore fatte - ore dovute (in minuti).
+   * Dovute: nei giorni lavorativi le SUE ore normali; niente nei giorni di riposo, nei festivi e nei
+   * giorni di assenza (ferie, malattia, permesso). Positivo = ha lavorato di piu'; negativo = da recuperare.
+   */
+  function hoursBalance({ cf, shifts, leaves, rules, from, to }) {
+    const r = normalizeRules(rules);
+    const due = Math.round((r.orePer[cf] || r.oreGiorno) * 60);
+    const worked = new Map();
+    for (const s of shifts || []) if (s.cf === cf && s.minutes != null && s.date >= from && s.date <= to) worked.set(s.date, (worked.get(s.date) || 0) + s.minutes);
+    const away = new Set();
+    for (const l of dedupeLeaves((leaves || []).filter((l) => l.cf === cf))) for (let d = l.startDate, n = 0; d <= l.endDate && n < 400; d = nextDay(d), n++) away.add(d);
+    let dovute = 0, fatte = 0;
+    if (isIsoDate(from) && isIsoDate(to)) {
+      for (let d = from, n = 0; d <= to && n < 3700; d = nextDay(d), n++) {
+        if (dayKind(d, r, cf) === "lavorativo" && !away.has(d)) dovute += due;
+        fatte += worked.get(d) || 0;
+      }
+    }
+    return { dovute, fatte, saldo: fatte - dovute };
   }
 
   /** Riepilogo per il consulente del lavoro, per dipendente, nel mese indicato. */
@@ -3921,7 +3949,7 @@ var qrcode = function() {
     for (const [cf, p] of byDay) {
       for (const [date, d] of Object.entries(p.days)) {
         add(cf, date, "ORDINARIE", d.ord);
-        add(cf, date, "STRAORDINARIO", d.str);
+        add(cf, date, r.bancaOre[cf] ? "BANCA ORE" : "STRAORDINARIO", d.str);
         add(cf, date, "FESTIVE", d.fest);
         add(cf, date, "NOTTURNE", d.nott);
       }
@@ -3939,7 +3967,7 @@ var qrcode = function() {
         add(l.cf, date, voce, perDay);
       }
     }
-    const order = ["ORDINARIE", "STRAORDINARIO", "FESTIVE", "NOTTURNE", "FERIE", "MALATTIA", "PERMESSO SINDACALE"];
+    const order = ["ORDINARIE", "STRAORDINARIO", "BANCA ORE", "FESTIVE", "NOTTURNE", "FERIE", "MALATTIA", "PERMESSO SINDACALE"];
     rows.sort((a, b) => a.name.localeCompare(b.name, "it") || a.cf.localeCompare(b.cf) || a.date.localeCompare(b.date) || order.indexOf(a.voce) - order.indexOf(b.voce));
     return rows;
   }
@@ -3991,7 +4019,7 @@ var qrcode = function() {
         foglio.push([s.name, s.cf, label, ...vals.map((v) => (v ? v : null)), Math.round(vals.reduce((a, b) => a + (b || 0), 0) * 100) / 100]);
       };
       line("Ore ordinarie", (d) => hoursNum(days[d] && days[d].ord));
-      line("Ore straordinarie", (d) => hoursNum(days[d] && days[d].str));
+      line(r.bancaOre[s.cf] ? "Straordinari in BANCA ORE (non pagare)" : "Ore straordinarie", (d) => hoursNum(days[d] && days[d].str));
       line("Ore festive", (d) => hoursNum(days[d] && days[d].fest));
       for (const [type, label] of LEAVE_ROWS) line(label, (d) => (leaveOn(s.cf, type, d) ? 1 : 0));
     }
@@ -4136,6 +4164,7 @@ var qrcode = function() {
     buildXlsx,
     crc32,
     leaveDaysInMonth,
+    hoursBalance,
     dedupeLeaves,
     applyLeaveCancellations,
     leaveOverlaps,
@@ -4159,7 +4188,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611261450"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611270803"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -5278,12 +5307,48 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     // ore normali al giorno della ditta + quelle dei singoli dipendenti part-time
     const orePer = {};
     const sabatoPer = {};
+    const bancaOre = {};
     for (const [cf, v] of Object.entries(people())) {
       if (v && Number(v.oreGiorno) > 0) orePer[cf] = Number(v.oreGiorno);
       if (v && typeof v.sabato === "boolean") sabatoPer[cf] = v.sabato;
+      if (v && v.bancaOre === true) bancaOre[cf] = true;
     }
-    return L.normalizeRules({ ...loadJson("cartellino.orario"), orePer, sabatoPer });
+    return L.normalizeRules({ ...loadJson("cartellino.orario"), orePer, sabatoPer, bancaOre });
   }
+  // ---------------------------------------------------------- SALDO ORE (+ ha lavorato di piu', - da recuperare)
+  const prevDay = (d) => new Date(Date.parse(d + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
+  /** Saldo del mese (fino a ieri) e, se scelta, la banca ore dal giorno in cui e' partita. null = niente dati. */
+  function balanceOf(cf) {
+    const mine = (state.shifts || []).filter((x) => x.cf === cf && x.minutes != null);
+    if (!mine.length) return null;
+    const first = mine.reduce((a, x) => (x.date < a ? x.date : a), mine[0].date);
+    const v = people()[cf] || {};
+    const today = romeToday();
+    let end = prevDay(today);
+    if (v.uscito) { const u = ymd(new Date(v.uscito)); if (u < end) end = u; }
+    const monthStart = today.slice(0, 7) + "-01";
+    const from = first > monthStart ? first : monthStart;
+    const lv = countedLeaves().filter((l) => l.cf === cf);
+    const r = rules();
+    const mese = from <= end ? L.hoursBalance({ cf, shifts: mine, leaves: lv, rules: r, from, to: end }).saldo : 0;
+    let banca = null;
+    if (v.bancaOre) {
+      const bf = v.bancaOreDal && v.bancaOreDal > first ? v.bancaOreDal : first;
+      banca = bf <= end ? L.hoursBalance({ cf, shifts: mine, leaves: lv, rules: r, from: bf, to: end }).saldo : 0;
+    }
+    return { mese, banca };
+  }
+  const fmtSaldo = (m) => (m > 0 ? "+" : m < 0 ? "−" : "") + L.formatMinutes(Math.abs(m));
+  function saldoPill(cf) {
+    const b = balanceOf(cf);
+    if (!b) return "";
+    const m = b.banca != null ? b.banca : b.mese;
+    const what = b.banca != null ? "banca ore" : "questo mese";
+    if (Math.abs(m) < 15) return `<span class="pill ok" title="Saldo ore ${what}">⚖️ in pari</span>`;
+    return m > 0 ? `<span class="pill ok" title="Ha lavorato più del suo orario (${what})">🟢 ${fmtSaldo(m)} h</span>`
+      : `<span class="pill bad" title="Ore da recuperare (${what})">🔴 ${fmtSaldo(m)} h</span>`;
+  }
+
   /** Ora dell'avviso "non ha timbrato" ("HH:MM"), "" = spento. */
   function alertTime() { const a = String(loadJson("cartellino.orario").alert || ""); return /^\d\d:\d\d$/.test(a) ? a : ""; }
   function consultantEmail() { return String(loadJson("cartellino.orario").email || "").trim(); }
@@ -5425,6 +5490,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
       : v.senzaTelefono ? `<span class="pill warn">📝 Senza telefono</span>`
       : d && d.lastReport.has(cf) ? `<span class="pill ok">✅ Attivo</span>` : `<span class="pill warn">⏳ Invito mandato</span>`;
     const tile = (val, label) => `<div class="tile"><b>${val}</b><span>${label}</span></div>`;
+    const bal = balanceOf(cf);
     const fm = (m) => L.formatMinutes(m || 0);
     $("personBody").innerHTML = `
       <div class="ptop"><div class="avatar">${esc(initials(name))}</div>
@@ -5434,7 +5500,9 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
       <div class="tiles">
         ${tile(fm(sum && sum.minutes), "ore lavorate")}
         ${tile(sum ? sum.days : 0, "giorni")}
-        ${tile(fm(sum && sum.str), "straordinari")}
+        ${tile(fm(sum && sum.str), v.bancaOre ? "straordinari (in banca ore)" : "straordinari")}
+        ${bal ? `<div class="tile" style="border-color:${bal.mese < 0 ? "#fca5a5" : "#86efac"}"><b style="color:${bal.mese < 0 ? "#b91c1c" : "#15803d"}">${fmtSaldo(bal.mese)}</b><span>saldo del mese (fino a ieri)</span></div>` : ""}
+        ${bal && bal.banca != null ? `<div class="tile" style="border-color:${bal.banca < 0 ? "#fca5a5" : "#86efac"}"><b style="color:${bal.banca < 0 ? "#b91c1c" : "#15803d"}">🏦 ${fmtSaldo(bal.banca)}</b><span>banca ore</span></div>` : ""}
         ${tile(sum && sum.ferie ? sum.ferie : 0, "giorni di ferie")}
         ${tile(sum && sum.malattia ? sum.malattia : 0, "giorni di malattia")}
       </div>
@@ -5449,7 +5517,9 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${!v.uscito ? `<button class="btn-small" data-act="left" ${ids}>🚪 Non lavora più qui</button>` : ""}
         <label class="note">Ore al giorno <input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px"></label>
         <label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> Lavora il sabato</label>
-      </div>`;
+        <label class="note">Straordinari <select data-banca="${esc(cf)}"><option value="">💶 pagati in busta paga</option><option value="1" ${v.bancaOre ? "selected" : ""}>🏦 in banca ore (si recuperano)</option></select></label>
+      </div>
+      <p class="note">Saldo: <b style="color:#15803d">+</b> = ha lavorato più del suo orario · <b style="color:#b91c1c">−</b> = ore da recuperare. Ferie, malattia, permessi, sabati di riposo e festivi non contano.</p>`;
     $("personCard").classList.remove("hidden");
   }
   window.__cartellinoPerson = (cf) => openPerson(cf); // test automatici
@@ -6049,7 +6119,7 @@ Digital Valut non ne ha una copia.</p>
           !v.selfReg ? `<button class="btn-small" data-staff="delete" ${ids}>🗑 Elimina</button>` : "",
         ].filter(Boolean).join(" ");
         return { cls: v.uscito || v.nascosto ? "invalid" : "", cells: [
-          `<a href="#" data-person="${esc(cf)}"><b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b></a><br><span class="note">${esc(cf)}</span>`,
+          `<a href="#" data-person="${esc(cf)}"><b>${esc(v.invito.cognome)} ${esc(v.invito.nome)}</b></a> ${saldoPill(cf)}<br><span class="note">${esc(cf)}</span>`,
           esc(v.mansione || v.invito.mansione || (state.data ? [...state.data.attendances].reverse().find((a) => a.cf === cf && a.task)?.task || "" : "")) + (v.mansioneAt ? ` <span class="pill warn">cambiata</span>` : ""),
           `<input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:64px" title="Ore al giorno (es. 4 per un part-time)"> <span class="note">ore</span><br><label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> sabato</label>`,
           stato,
@@ -6144,9 +6214,14 @@ Digital Valut non ne ha una copia.</p>
   document.addEventListener("change", async (e) => {
     const inp = e.target.closest("[data-ore]");
     const sab = e.target.closest("[data-sab]");
-    if (!inp && !sab) return;
+    const banca = e.target.closest("[data-banca]");
+    if (!inp && !sab && !banca) return;
     const pe = people();
-    if (inp) {
+    if (banca) {
+      const cf = banca.dataset.banca, on = banca.value === "1", old = pe[cf] || {};
+      // la banca ore parte da OGGI (prima i suoi straordinari erano pagati)
+      pe[cf] = { ...old, bancaOre: on, bancaOreDal: on ? (old.bancaOre ? old.bancaOreDal : romeToday()) : null };
+    } else if (inp) {
       const cf = inp.dataset.ore, n = Number(String(inp.value).replace(",", "."));
       pe[cf] = { ...(pe[cf] || {}), oreGiorno: n > 0 && n <= 24 ? n : null };
     } else {
