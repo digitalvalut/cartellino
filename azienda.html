@@ -3650,6 +3650,28 @@ var qrcode = function() {
     return { dovute, fatte, saldo: fatte - dovute };
   }
 
+  /**
+   * FERIE RIMASTE: il datore scrive quante ferie ha il dipendente in un certo giorno (base, baseDate) e,
+   * se vuole, quante se ne aggiungono ogni 1° gennaio (perYear). Si tolgono i giorni LAVORATIVI di ferie
+   * da baseDate in poi (anche quelle gia' chieste per il futuro; le rifiutate/annullate le toglie il chiamante).
+   */
+  function leaveBalance({ cf, leaves, rules, base, baseDate, perYear, today }) {
+    const r = normalizeRules(rules);
+    let total = Number(base) || 0;
+    if (Number(perYear) > 0 && isIsoDate(baseDate) && isIsoDate(today)) {
+      for (let y = Number(baseDate.slice(0, 4)) + 1; y <= Number(today.slice(0, 4)); y++) total += Number(perYear);
+    }
+    let used = 0;
+    for (const l of dedupeLeaves((leaves || []).filter((l) => l.cf === cf))) {
+      if (l.type !== "FERIE") continue;
+      for (let d = l.startDate, n = 0; d <= l.endDate && n < 400; d = nextDay(d), n++) {
+        if (isIsoDate(baseDate) && d < baseDate) continue;
+        if (dayKind(d, r, cf) === "lavorativo") used++;
+      }
+    }
+    return { total, used, left: total - used };
+  }
+
   /** Riepilogo per il consulente del lavoro, per dipendente, nel mese indicato. */
   function monthlySummary(shifts, leaves, month, rules) {
     leaves = dedupeLeaves(leaves);
@@ -4165,6 +4187,7 @@ var qrcode = function() {
     crc32,
     leaveDaysInMonth,
     hoursBalance,
+    leaveBalance,
     dedupeLeaves,
     applyLeaveCancellations,
     leaveOverlaps,
@@ -4188,7 +4211,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611270803"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611270815"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4675,8 +4698,15 @@ var qrcode = function() {
         ? `<br><span class="pill bad">⚠️ Doppione</span> <small>ha già chiesto ${esc((LEAVE_LABEL[o.type] || o.type).toLowerCase())} dal ${fmtDate(o.startDate)} al ${fmtDate(o.endDate)}${st ? " (" + st + ")" : ""}: i giorni in comune contano una volta sola.</small>`
         : `<br><span class="pill warn">⚠️ Giorni in comune</span> <small>con ${esc((LEAVE_LABEL[o.type] || o.type).toLowerCase())} dal ${fmtDate(o.startDate)} al ${fmtDate(o.endDate)}${st ? " (" + st + ")" : ""}${l.type === "MALATTIA" ? ": la malattia interrompe le ferie" : ""}.</small>`;
     };
+    const ferieText = (l) => {
+      if (l.type !== "FERIE") return "";
+      const f = ferieOf(l.cf);
+      if (!f) return "";
+      return f.left < 0 ? `<br><span class="pill bad">⚠️ Ferie finite</span> <small>se approvi va sotto di ${-f.left} ${-f.left === 1 ? "giorno" : "giorni"}</small>`
+        : `<br><small>🏖️ se approvi, gli restano <b>${f.left}</b> ${f.left === 1 ? "giorno" : "giorni"} di ferie</small>`;
+    };
     for (const l of pending) {
-      todo.push(`<li${isUrgent(l) ? ' style="background:#fef9c3;border-radius:8px;padding-left:8px"' : ""}>${isUrgent(l) ? '<span class="pill bad">⚡ URGENTE</span> ' : ""}<span class="pill warn">Da decidere</span> <b>${esc(nameOf(l.cf))}</b> — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}${ovText(l)}
+      todo.push(`<li${isUrgent(l) ? ' style="background:#fef9c3;border-radius:8px;padding-left:8px"' : ""}>${isUrgent(l) ? '<span class="pill bad">⚡ URGENTE</span> ' : ""}<span class="pill warn">Da decidere</span> <b>${esc(nameOf(l.cf))}</b> — ${esc(LEAVE_LABEL[l.type] || l.type)} dal ${fmtDate(l.startDate)} al ${fmtDate(l.endDate)}${ferieText(l)}${ovText(l)}
         <span style="flex:1"></span><button class="btn-ok" data-act="approve" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✓ Approva</button>
         <button class="btn-no" data-act="reject" data-id="${esc(l.id)}" data-cf="${esc(l.cf)}">✗ Rifiuta</button></li>`);
     }
@@ -5338,6 +5368,12 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     }
     return { mese, banca };
   }
+  /** Ferie rimaste (null = il datore non le ha ancora scritte). */
+  function ferieOf(cf) {
+    const v = people()[cf] || {};
+    if (v.ferieBase == null || v.ferieBase === "") return null;
+    return L.leaveBalance({ cf, leaves: state.data ? countedLeaves() : [], rules: rules(), base: v.ferieBase, baseDate: v.ferieDal, perYear: v.ferieAnno, today: romeToday() });
+  }
   const fmtSaldo = (m) => (m > 0 ? "+" : m < 0 ? "−" : "") + L.formatMinutes(Math.abs(m));
   function saldoPill(cf) {
     const b = balanceOf(cf);
@@ -5491,6 +5527,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
       : d && d.lastReport.has(cf) ? `<span class="pill ok">✅ Attivo</span>` : `<span class="pill warn">⏳ Invito mandato</span>`;
     const tile = (val, label) => `<div class="tile"><b>${val}</b><span>${label}</span></div>`;
     const bal = balanceOf(cf);
+    const fer = ferieOf(cf);
     const fm = (m) => L.formatMinutes(m || 0);
     $("personBody").innerHTML = `
       <div class="ptop"><div class="avatar">${esc(initials(name))}</div>
@@ -5504,6 +5541,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${bal ? `<div class="tile" style="border-color:${bal.mese < 0 ? "#fca5a5" : "#86efac"}"><b style="color:${bal.mese < 0 ? "#b91c1c" : "#15803d"}">${fmtSaldo(bal.mese)}</b><span>saldo del mese (fino a ieri)</span></div>` : ""}
         ${bal && bal.banca != null ? `<div class="tile" style="border-color:${bal.banca < 0 ? "#fca5a5" : "#86efac"}"><b style="color:${bal.banca < 0 ? "#b91c1c" : "#15803d"}">🏦 ${fmtSaldo(bal.banca)}</b><span>banca ore</span></div>` : ""}
         ${tile(sum && sum.ferie ? sum.ferie : 0, "giorni di ferie")}
+        ${fer ? `<div class="tile" style="border-color:${fer.left < 0 ? "#fca5a5" : "#bae6fd"}"><b style="color:${fer.left < 0 ? "#b91c1c" : "#0369a1"}">🏖️ ${fer.left}</b><span>ferie rimaste</span></div>` : ""}
         ${tile(sum && sum.malattia ? sum.malattia : 0, "giorni di malattia")}
       </div>
       <h3>🗓️ Richieste</h3>
@@ -5517,6 +5555,8 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${!v.uscito ? `<button class="btn-small" data-act="left" ${ids}>🚪 Non lavora più qui</button>` : ""}
         <label class="note">Ore al giorno <input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px"></label>
         <label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> Lavora il sabato</label>
+        <label class="note">🏖️ Ferie rimaste oggi <input type="number" min="0" max="400" step="0.5" data-ferie="${esc(cf)}" value="${fer ? esc(String(fer.left)) : ""}" placeholder="es. 18" style="width:70px"> giorni</label>
+        <label class="note">ogni anno <input type="number" min="0" max="60" step="0.5" data-ferieanno="${esc(cf)}" value="${esc(v.ferieAnno || "")}" placeholder="es. 26" style="width:64px"> (si aggiungono il 1° gennaio)</label>
         <label class="note">Straordinari <select data-banca="${esc(cf)}"><option value="">💶 pagati in busta paga</option><option value="1" ${v.bancaOre ? "selected" : ""}>🏦 in banca ore (si recuperano)</option></select></label>
       </div>
       <p class="note">Saldo: <b style="color:#15803d">+</b> = ha lavorato più del suo orario · <b style="color:#b91c1c">−</b> = ore da recuperare. Ferie, malattia, permessi, sabati di riposo e festivi non contano.</p>`;
@@ -6215,9 +6255,20 @@ Digital Valut non ne ha una copia.</p>
     const inp = e.target.closest("[data-ore]");
     const sab = e.target.closest("[data-sab]");
     const banca = e.target.closest("[data-banca]");
-    if (!inp && !sab && !banca) return;
+    const fer = e.target.closest("[data-ferie]");
+    const ferA = e.target.closest("[data-ferieanno]");
+    if (!inp && !sab && !banca && !fer && !ferA) return;
     const pe = people();
-    if (banca) {
+    if (fer) {
+      // "ferie rimaste OGGI": si riparte da oggi (le ferie gia' chieste da oggi in poi le toglie il conto)
+      const cf = fer.dataset.ferie, raw = String(fer.value).trim().replace(",", "."), n = Number(raw);
+      const today = romeToday();
+      const future = raw === "" ? 0 : L.leaveBalance({ cf, leaves: state.data ? countedLeaves() : [], rules: rules(), base: 0, baseDate: today, today }).used;
+      pe[cf] = { ...(pe[cf] || {}), ferieBase: raw === "" || !(n >= 0) ? null : n + future, ferieDal: raw === "" ? null : today };
+    } else if (ferA) {
+      const cf = ferA.dataset.ferieanno, n = Number(String(ferA.value).replace(",", "."));
+      pe[cf] = { ...(pe[cf] || {}), ferieAnno: n > 0 && n <= 60 ? n : null };
+    } else if (banca) {
       const cf = banca.dataset.banca, on = banca.value === "1", old = pe[cf] || {};
       // la banca ore parte da OGGI (prima i suoi straordinari erano pagati)
       pe[cf] = { ...old, bancaOre: on, bancaOreDal: on ? (old.bancaOre ? old.bancaOreDal : romeToday()) : null };
