@@ -376,7 +376,7 @@
   </section>
 
   <section class="card hidden noprint" id="staffCard">
-    <h2>👷 I tuoi dipendenti</h2>
+    <h2>👷 I tuoi dipendenti <span id="planInfo" class="note" style="font-weight:600"></span></h2>
     <details id="addStaff" style="border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:8px 0">
     <summary style="cursor:pointer;font-weight:800;font-size:17px">➕ Aggiungi un dipendente</summary>
     <p class="muted">Scrivi i dati e mandagli l'<b>invito</b> (WhatsApp o QR): lo tocca e Cartellino è già pronto, con i suoi dati.</p>
@@ -3329,6 +3329,8 @@ var qrcode = function() {
             taskCustom: !!p.taskCustom,
             place: p.place && typeof p.place.nome === "string" ? { id: String(p.place.id || ""), nome: p.place.nome, tipo: p.place.tipo === "mezzo" ? "mezzo" : "luogo" } : null,
             geo: typeof p.geo === "string" && GEO_TEXT[p.geo] ? p.geo : null,
+            // uscita durante la giornata: per servizio (lavoro), permesso/visita, personale
+            motivo: p.type === "USCITA" && ["SERVIZIO", "PERMESSO", "PERSONALE"].includes(p.motivo) ? p.motivo : null,
           });
           if (valid && geoProblem(p.geo) && GEO_TEXT[p.geo]) {
             issues.push({ cf: c.cf, id: r.id, text: `${p.type} del ${romeDate(p.timestamp)} ${romeTime(p.timestamp)}${p.place && p.place.nome ? ` a "${p.place.nome}"` : ""}: ${GEO_TEXT[p.geo]}.` });
@@ -3422,6 +3424,34 @@ var qrcode = function() {
     return out;
   }
 
+  /**
+   * USCITE DURANTE LA GIORNATA (motivo scelto dall'operaio quando timbra l'uscita):
+   * - SERVIZIO (per lavoro): l'uscita e il rientro dello stesso giorno spariscono, il turno e' continuo (ore lavorate);
+   * - PERMESSO (visita, permesso a ore): il tempo fuori e' un PERMESSO A ORE (non conta come ore da recuperare);
+   * - PERSONALE: tempo non lavorato (finisce nel saldo come ore da recuperare), come un'uscita normale.
+   * Restituisce le timbrature da usare per i turni e i permessi a ore { cf, name, date, minutes }.
+   */
+  function applyOutReasons(attendances) {
+    const byCf = new Map();
+    for (const a of attendances || []) { if (!byCf.has(a.cf)) byCf.set(a.cf, []); byCf.get(a.cf).push(a); }
+    const drop = new Set(), permits = [];
+    for (const list of byCf.values()) {
+      const ok = list.filter((a) => a.valid !== false).sort((x, y) => String(x.timestamp).localeCompare(String(y.timestamp)));
+      for (let i = 0; i < ok.length - 1; i++) {
+        const a = ok[i], b = ok[i + 1];
+        if (a.type !== "USCITA" || b.type !== "ENTRATA" || !a.motivo) continue;
+        const da = romeDate(a.timestamp);
+        if (da !== romeDate(b.timestamp)) continue; // si rientra un altro giorno: e' una fine giornata
+        if (a.motivo === "SERVIZIO") { drop.add(a); drop.add(b); }
+        else if (a.motivo === "PERMESSO") {
+          const min = Math.round((Date.parse(b.timestamp) - Date.parse(a.timestamp)) / 60000);
+          if (min > 0 && min < 1440) permits.push({ cf: a.cf, name: a.name, date: da, minutes: min, from: a.time || romeTime(a.timestamp), to: b.time || romeTime(b.timestamp) });
+        }
+      }
+    }
+    return { attendances: (attendances || []).filter((a) => !drop.has(a)), permits };
+  }
+
   function buildShifts(attendances) {
     const byCf = new Map();
     for (const a of attendances) {
@@ -3474,8 +3504,24 @@ var qrcode = function() {
   }
 
   const nextDay = (d) => new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
-  /** Priorita' se due assenze cadono lo stesso giorno: la malattia interrompe le ferie. */
-  const LEAVE_PRIO = { MALATTIA: 3, PERMESSO_SINDACALE_LEGGE_300_70: 2, FERIE: 1 };
+  /**
+   * TIPI DI ASSENZA (un solo elenco per tutto il programma): nome, voce per il programma paghe, parola per "Oggi"
+   * e priorita' se due assenze cadono lo stesso giorno (malattia e infortunio interrompono le ferie).
+   */
+  const LEAVE_INFO = {
+    FERIE: { label: "Ferie", voce: "FERIE", word: "in ferie", prio: 1 },
+    MALATTIA: { label: "Malattia", voce: "MALATTIA", word: "in malattia", prio: 3 },
+    INFORTUNIO: { label: "Infortunio", voce: "INFORTUNIO", word: "in infortunio", prio: 3 },
+    PERMESSO_SINDACALE_LEGGE_300_70: { label: "Permesso sindacale (L. 300/70)", voce: "PERMESSO SINDACALE", word: "in permesso sindacale", prio: 2 },
+    PERMESSO_104: { label: "Permesso Legge 104", voce: "PERMESSO 104", word: "in permesso 104", prio: 2 },
+    PERMESSO_RETRIBUITO: { label: "Permesso retribuito (ROL)", voce: "PERMESSO RETRIBUITO", word: "in permesso", prio: 2 },
+    PERMESSO_NON_RETRIBUITO: { label: "Permesso non retribuito", voce: "PERMESSO NON RETRIBUITO", word: "in permesso", prio: 2 },
+    LUTTO: { label: "Lutto / grave motivo familiare", voce: "LUTTO", word: "assente (lutto)", prio: 2 },
+    MATRIMONIO: { label: "Congedo matrimoniale", voce: "CONGEDO MATRIMONIALE", word: "in congedo matrimoniale", prio: 2 },
+    CONGEDO_PARENTALE: { label: "Congedo parentale / maternità / paternità", voce: "CONGEDO PARENTALE", word: "in congedo", prio: 2 },
+    DONAZIONE_SANGUE: { label: "Donazione di sangue", voce: "DONAZIONE SANGUE", word: "assente (donazione)", prio: 2 },
+  };
+  const LEAVE_PRIO = Object.fromEntries(Object.entries(LEAVE_INFO).map(([k, v]) => [k, v.prio]));
   /**
    * Toglie i DOPPIONI: se lo stesso dipendente ha richieste che si sovrappongono, ogni giorno conta una
    * volta sola (malattia > permesso > ferie; a parita' vince la prima richiesta). Restituisce richieste
@@ -3669,17 +3715,19 @@ var qrcode = function() {
    * Dovute: nei giorni lavorativi le SUE ore normali; niente nei giorni di riposo, nei festivi e nei
    * giorni di assenza (ferie, malattia, permesso). Positivo = ha lavorato di piu'; negativo = da recuperare.
    */
-  function hoursBalance({ cf, shifts, leaves, rules, from, to }) {
+  function hoursBalance({ cf, shifts, leaves, rules, from, to, permits }) {
     const r = normalizeRules(rules);
     const due = Math.round((r.orePer[cf] || r.oreGiorno) * 60);
     const worked = new Map();
     for (const s of shifts || []) if (s.cf === cf && s.minutes != null && s.date >= from && s.date <= to) worked.set(s.date, (worked.get(s.date) || 0) + s.minutes);
     const away = new Set();
     for (const l of dedupeLeaves((leaves || []).filter((l) => l.cf === cf))) for (let d = l.startDate, n = 0; d <= l.endDate && n < 400; d = nextDay(d), n++) away.add(d);
+    const permMin = new Map();
+    for (const pm of permits || []) if (pm.cf === cf) permMin.set(pm.date, (permMin.get(pm.date) || 0) + pm.minutes);
     let dovute = 0, fatte = 0;
     if (isIsoDate(from) && isIsoDate(to)) {
       for (let d = from, n = 0; d <= to && n < 3700; d = nextDay(d), n++) {
-        if (dayKind(d, r, cf) === "lavorativo" && !away.has(d)) dovute += due;
+        if (dayKind(d, r, cf) === "lavorativo" && !away.has(d)) dovute += Math.max(0, due - (permMin.get(d) || 0));
         fatte += worked.get(d) || 0;
       }
     }
@@ -3709,11 +3757,11 @@ var qrcode = function() {
   }
 
   /** Riepilogo per il consulente del lavoro, per dipendente, nel mese indicato. */
-  function monthlySummary(shifts, leaves, month, rules) {
+  function monthlySummary(shifts, leaves, month, rules, permits) {
     leaves = dedupeLeaves(leaves);
     const rows = new Map();
     const row = (cf, name) => {
-      if (!rows.has(cf)) rows.set(cf, { cf, name: name || cf, days: new Set(), minutes: 0, shifts: 0, anomalies: 0, ferie: 0, malattia: 0, sindacale: 0, ord: 0, str: 0, fest: 0, nott: 0 });
+      if (!rows.has(cf)) rows.set(cf, { cf, name: name || cf, days: new Set(), minutes: 0, shifts: 0, anomalies: 0, ferie: 0, malattia: 0, sindacale: 0, altri: 0, perOre: 0, ord: 0, str: 0, fest: 0, nott: 0 });
       return rows.get(cf);
     };
     for (const s of shifts) {
@@ -3738,7 +3786,9 @@ var qrcode = function() {
       if (l.type === "FERIE") r.ferie += d;
       else if (l.type === "MALATTIA") r.malattia += d;
       else if (l.type === "PERMESSO_SINDACALE_LEGGE_300_70") r.sindacale += d;
+      else r.altri += d; // 104, ROL, lutto, matrimonio, congedi, infortunio...
     }
+    for (const pm of permits || []) if (pm.date.startsWith(month)) row(pm.cf, pm.name).perOre += pm.minutes;
     return [...rows.values()]
       .map((r) => ({ ...r, days: r.days.size }))
       .sort((a, b) => a.name.localeCompare(b.name, "it"));
@@ -3991,8 +4041,8 @@ var qrcode = function() {
    * Le assenze contano solo nei giorni lavorativi di quella persona, con le sue ore al giorno.
    * leaves: solo le assenze da contare (il chiamante toglie quelle rifiutate).
    */
-  const PAY_LEAVE = { FERIE: "FERIE", MALATTIA: "MALATTIA", PERMESSO_SINDACALE_LEGGE_300_70: "PERMESSO SINDACALE" };
-  function payrollRows({ month, shifts, leaves, rules }) {
+  const PAY_LEAVE = Object.fromEntries(Object.entries(LEAVE_INFO).map(([k, v]) => [k, v.voce]));
+  function payrollRows({ month, shifts, leaves, rules, permits }) {
     leaves = dedupeLeaves(leaves);
     const r = normalizeRules(rules);
     const byDay = hoursByDay(shifts, month, r);
@@ -4025,7 +4075,8 @@ var qrcode = function() {
         add(l.cf, date, voce, perDay);
       }
     }
-    const order = ["ORDINARIE", "STRAORDINARIO", "BANCA ORE", "FESTIVE", "NOTTURNE", "FERIE", "MALATTIA", "PERMESSO SINDACALE"];
+    for (const pm of permits || []) if (pm.date.startsWith(month)) add(pm.cf, pm.date, "PERMESSO ORE", pm.minutes);
+    const order = ["ORDINARIE", "STRAORDINARIO", "BANCA ORE", "FESTIVE", "NOTTURNE", "PERMESSO ORE", ...Object.values(LEAVE_INFO).map((v) => v.voce)];
     rows.sort((a, b) => a.name.localeCompare(b.name, "it") || a.cf.localeCompare(b.cf) || a.date.localeCompare(b.date) || order.indexOf(a.voce) - order.indexOf(b.voce));
     return rows;
   }
@@ -4048,22 +4099,22 @@ var qrcode = function() {
    * I fogli del file per il consulente: Riepilogo, Foglio presenze (giorno per giorno), Timbrature, Note.
    * leaves: solo le assenze da contare (il chiamante toglie quelle rifiutate).
    */
-  function consultantSheets({ companyName, month, shifts, leaves, rules }) {
+  function consultantSheets({ companyName, month, shifts, leaves, rules, permits }) {
     leaves = dedupeLeaves(leaves);
     const r = normalizeRules(rules);
     const [y, mo] = month.split("-").map(Number);
     const nDays = new Date(Date.UTC(y, mo, 0)).getUTCDate();
     const dates = Array.from({ length: nDays }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
-    const summary = monthlySummary(shifts, leaves, month, r);
+    const summary = monthlySummary(shifts, leaves, month, r, permits);
     const byDay = hoursByDay(shifts, month, r);
     const leaveOn = (cf, type, date) => leaves.some((l) => l.valid && l.cf === cf && l.type === type && l.startDate <= date && l.endDate >= date);
     const fmt = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 
     const riepilogo = [
       ["Cognome e nome", "Codice fiscale", "Giorni lavorati", "Ore ordinarie", "Ore straordinarie", "Ore festive", "di cui notturne", "Ore totali",
-        "Ferie (gg)", "Malattia (gg)", "Permessi sindacali (gg)", "Turni da controllare"],
+        "Ferie (gg)", "Malattia (gg)", "Permessi sindacali (gg)", "Turni da controllare", "Altri permessi e congedi (gg)", "Permessi a ore (h)"],
       ...summary.map((s) => [s.name, s.cf, s.days, hoursNum(s.ord), hoursNum(s.str), hoursNum(s.fest), hoursNum(s.nott), hoursNum(s.minutes),
-        s.ferie, s.malattia, s.sindacale, s.anomalies]),
+        s.ferie, s.malattia, s.sindacale, s.anomalies, s.altri, hoursNum(s.perOre)]),
     ];
     const WD = ["D", "L", "M", "M", "G", "V", "S"];
     const foglio = [
@@ -4080,6 +4131,14 @@ var qrcode = function() {
       line(r.bancaOre[s.cf] ? "Straordinari in BANCA ORE (non pagare)" : "Ore straordinarie", (d) => hoursNum(days[d] && days[d].str));
       line("Ore festive", (d) => hoursNum(days[d] && days[d].fest));
       for (const [type, label] of LEAVE_ROWS) line(label, (d) => (leaveOn(s.cf, type, d) ? 1 : 0));
+      // gli altri tipi (104, ROL, lutto...) solo se ci sono quel mese: il foglio resta pulito
+      for (const [type, info] of Object.entries(LEAVE_INFO)) {
+        if (LEAVE_ROWS.some(([t]) => t === type) || !dates.some((d) => leaveOn(s.cf, type, d))) continue;
+        line(`${info.label} (giorni)`, (d) => (leaveOn(s.cf, type, d) ? 1 : 0));
+      }
+      const pmDay = new Map();
+      for (const pm of permits || []) if (pm.cf === s.cf) pmDay.set(pm.date, (pmDay.get(pm.date) || 0) + pm.minutes);
+      if ([...pmDay.keys()].some((d) => d.startsWith(month))) line("Permessi a ore (h)", (d) => hoursNum(pmDay.get(d)));
     }
     const timbrature = [
       ["Data", "Cognome e nome", "Codice fiscale", "Entrata", "Uscita", "Ore", "Tipo di giorno", "Luogo", "Mansione", "Note"],
@@ -4222,6 +4281,8 @@ var qrcode = function() {
     buildXlsx,
     crc32,
     leaveDaysInMonth,
+    LEAVE_INFO,
+    applyOutReasons,
     hoursBalance,
     leaveBalance,
     dedupeLeaves,
@@ -4247,11 +4308,11 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611271256"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611271429"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  const LEAVE_LABEL = { FERIE: "Ferie", MALATTIA: "Malattia", PERMESSO_SINDACALE_LEGGE_300_70: "Permesso sindacale (L. 300/70)" };
+  const LEAVE_LABEL = Object.fromEntries(Object.entries(L.LEAVE_INFO).map(([k, v]) => [k, v.label])); // ferie, malattia, 104, lutto...
   const MONTHS = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
   const monthLabel = (m) => { const [y, mm] = m.split("-"); return `${MONTHS[Number(mm) - 1]} ${y}`; };
   const fmtDate = (d) => { const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
@@ -4318,6 +4379,9 @@ var qrcode = function() {
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const scad = e && /^\d{4}-\d{2}-\d{2}$/.test(e.scadenza || "") ? e.scadenza : null;
+      // numero massimo di dipendenti del contratto (deciso da Digital Valut nell'elenco clienti)
+      state.planMax = e && Number(e.dipendenti) > 0 ? Number(e.dipendenti) : 0;
+      if (state.key) { try { renderStaff(); } catch { /* elenco non ancora pronto */ } } // l'elenco solo dopo la password
       if (!e || e.stato !== "attivo" || (scad && today > scad)) {
         set("bad", `⛔ <b>Licenza ${scad && today > scad ? "scaduta il " + fmtDate(scad) : "non attiva"}</b>: i telefoni dei dipendenti sono bloccati. Contatta Digital Valut per rinnovarla.`);
         return;
@@ -4849,7 +4913,7 @@ var qrcode = function() {
     state.shifts = buildAllShifts();
     const m = state.month, d = state.data;
     const shifts = state.shifts.filter((s) => s.date.startsWith(m));
-    const summary = L.monthlySummary(state.shifts, countedLeaves(), m, rules());
+    const summary = L.monthlySummary(state.shifts, countedLeaves(), m, rules(), state.permits);
     const leaves = d.leaves.filter((l) => L.leaveDaysInMonth(l.startDate, l.endDate, m) > 0);
     const totalMin = summary.reduce((s, r) => s + r.minutes, 0);
     const pe = people();
@@ -4873,9 +4937,9 @@ var qrcode = function() {
 
     table($("tSummary"),
       [{ t: "Dipendente" }, { t: "Giorni lavorati", num: 1 }, { t: "Ore lavorate", num: 1 }, { t: "di cui straordinari", num: 1 },
-       { t: "Ferie (gg)", num: 1 }, { t: "Malattia (gg)", num: 1 }, { t: "Permessi (gg)", num: 1 }, { t: "Ore confermate" }],
+       { t: "Ferie (gg)", num: 1 }, { t: "Malattia (gg)", num: 1 }, { t: "Permessi (gg · ore)", num: 1 }, { t: "Ore confermate" }],
       summary.map((r) => ({ cls: r.anomalies ? "anom" : "", cells: [`<b>${esc(r.name)}</b>${r.anomalies ? ` <span class="pill warn" title="turni da controllare">⚠️ ${r.anomalies}</span>` : ""}`, r.days, L.formatMinutes(r.minutes),
-        r.str ? `<b>${L.formatMinutes(r.str)}</b>` : "", r.ferie || "", r.malattia || "", r.sindacale || "", confirmCell(confirmOf(r.cf, m))] })),
+        r.str ? `<b>${L.formatMinutes(r.str)}</b>` : "", r.ferie || "", r.malattia || "", [r.sindacale + r.altri || "", r.perOre ? L.formatMinutes(r.perOre) + " h" : ""].filter(Boolean).join(" · "), confirmCell(confirmOf(r.cf, m))] })),
       "Nessun dato in questo mese.");
 
     table($("tDetail"),
@@ -5340,7 +5404,7 @@ var qrcode = function() {
   $("pdfBtn").onclick = () => {
     if (!state.data) return;
     const m = state.month, d = state.data, c = state.company;
-    const rows = L.monthlySummary(state.shifts, countedLeaves(), m, rules());
+    const rows = L.monthlySummary(state.shifts, countedLeaves(), m, rules(), state.permits);
     const tot = rows.reduce((s, r) => s + r.minutes, 0);
     const dec = decisions();
     const leaves = d.leaves.filter((l) => l.valid && L.leaveDaysInMonth(l.startDate, l.endDate, m) > 0);
@@ -5403,11 +5467,12 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     const from = first > monthStart ? first : monthStart;
     const lv = countedLeaves().filter((l) => l.cf === cf);
     const r = rules();
-    const mese = from <= end ? L.hoursBalance({ cf, shifts: mine, leaves: lv, rules: r, from, to: end }).saldo : 0;
+    const pm = (state.permits || []).filter((x) => x.cf === cf);
+    const mese = from <= end ? L.hoursBalance({ cf, shifts: mine, leaves: lv, rules: r, from, to: end, permits: pm }).saldo : 0;
     let banca = null;
     if (v.bancaOre) {
       const bf = v.bancaOreDal && v.bancaOreDal > first ? v.bancaOreDal : first;
-      banca = bf <= end ? L.hoursBalance({ cf, shifts: mine, leaves: lv, rules: r, from: bf, to: end }).saldo : 0;
+      banca = bf <= end ? L.hoursBalance({ cf, shifts: mine, leaves: lv, rules: r, from: bf, to: end, permits: pm }).saldo : 0;
     }
     return { mese, banca };
   }
@@ -5494,14 +5559,16 @@ ${leaves.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(LEAVE_LABEL[l.type] ||
     const c = state.company || {};
     const slug = slugOf(c.name) || "azienda", who = cf ? "-" + (slugOf(personName(cf)) || cf) : "";
     const shifts = cf ? state.shifts.filter((x) => x.cf === cf) : state.shifts, leaves = cf ? countedLeaves().filter((l) => l.cf === cf) : countedLeaves();
-    const bytes = L.buildXlsx(L.consultantSheets({ companyName: c.name, month, shifts, leaves, rules: rules() }));
+    const permits = (state.permits || []).filter((x) => !cf || x.cf === cf);
+    const bytes = L.buildXlsx(L.consultantSheets({ companyName: c.name, month, shifts, leaves, rules: rules(), permits }));
     return { name: `presenze-${slug}${who}-${month}.xlsx`, bytes };
   }
   function payrollFile(month = state.month, cf = null) {
     const c = state.company || {};
     const slug = slugOf(c.name) || "azienda", who = cf ? "-" + (slugOf(personName(cf)) || cf) : "";
     const shifts = cf ? state.shifts.filter((x) => x.cf === cf) : state.shifts, leaves = cf ? countedLeaves().filter((l) => l.cf === cf) : countedLeaves();
-    return { name: `paghe-${slug}${who}-${month}.csv`, text: L.payrollCsv({ month, shifts, leaves, rules: rules() }) };
+    const permits = (state.permits || []).filter((x) => !cf || x.cf === cf);
+    return { name: `paghe-${slug}${who}-${month}.csv`, text: L.payrollCsv({ month, shifts, leaves, rules: rules(), permits }) };
   }
   /**
    * ARCHIVIO DEL MESE nella cartella dei dati: a mese finito, in "Mesi/AAAA-MM mese" ci sono da soli il file
@@ -5611,7 +5678,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
     const d = state.data;
     const st = personToday(cf, !!v.senzaTelefono);
     const month = romeToday().slice(0, 7);
-    const sum = d ? (L.monthlySummary(state.shifts.filter((x) => x.cf === cf), countedLeaves().filter((l) => l.cf === cf), month, rules())[0] || null) : null;
+    const sum = d ? (L.monthlySummary(state.shifts.filter((x) => x.cf === cf), countedLeaves().filter((l) => l.cf === cf), month, rules(), (state.permits || []).filter((x) => x.cf === cf))[0] || null) : null;
     const shifts = (state.shifts || []).filter((x) => x.cf === cf).sort((a, b) => (b.date + (b.in || "")).localeCompare(a.date + (a.in || ""))).slice(0, 15);
     const leaves = d ? d.leaves.filter((l) => l.cf === cf).sort((a, b) => String(b.startDate).localeCompare(String(a.startDate))) : [];
     const cancelledMine = d ? (d.cancelledLeaves || []).filter((l) => l.cf === cf) : [];
@@ -5674,7 +5741,7 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
   });
 
   // ---------------------------------------------------------- OGGI: chi c'è e chi no (a colpo d'occhio)
-  const LEAVE_WORD = { FERIE: "in ferie", MALATTIA: "in malattia", PERMESSO_SINDACALE_LEGGE_300_70: "in permesso sindacale" };
+  const LEAVE_WORD = Object.fromEntries(Object.entries(L.LEAVE_INFO).map(([k, v]) => [k, v.word]));
   function romeNowHM() {
     try { return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()); } catch { return new Date().toTimeString().slice(0, 5); }
   }
@@ -5694,6 +5761,10 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
       const first = punches.find((p) => p.type === "ENTRATA") || punches[0];
       const where = last.place && last.place.nome ? ` · ${esc(last.place.nome)}` : "";
       if (last.type === "ENTRATA") return { icon: "🟢", text: `al lavoro dalle <b>${esc(first.time)}</b>${where}`, cls: "in", order: 0, kind: "in" };
+      // fuori per un momento (scelto dall'operaio quando ha timbrato l'uscita)
+      if (last.motivo === "SERVIZIO") return { icon: "🧾", text: `fuori <b>per servizio</b> dalle <b>${esc(last.time)}</b>${where}`, cls: "in", order: 1, kind: "in" };
+      if (last.motivo === "PERMESSO") return { icon: "🏥", text: `in <b>permesso / visita</b> dalle <b>${esc(last.time)}</b>`, cls: "away", order: 3, kind: "away" };
+      if (last.motivo === "PERSONALE") return { icon: "🚪", text: `uscito <b>per motivi personali</b> alle <b>${esc(last.time)}</b>`, cls: "out", order: 2, kind: "out" };
       return { icon: "🔴", text: `uscito alle <b>${esc(last.time)}</b>${first.type === "ENTRATA" ? ` (entrato alle ${esc(first.time)})` : ""}${where}`, cls: "out", order: 2, kind: "out" };
     }
     if (manual.length) return { icon: "✍️", text: `ore scritte da te: ${esc(manual[0].in)}–${esc(manual[0].out)}`, cls: "out", order: 2, kind: "out" };
@@ -6288,6 +6359,8 @@ Digital Valut non ne ha una copia.</p>
     const extra = state.data ? [...state.data.names.entries()].filter(([cf]) => !(pe[cf] && pe[cf].invito)).map(([cf, name]) => [cf, { ...(pe[cf] || {}), invito: { cognome: name, nome: "", mansione: "" }, selfReg: true }]) : [];
     const all = rows.concat(extra);
     $("addStaff").open = $("addStaff").open || !all.length; // nessun dipendente: il modulo e' gia' aperto
+    const used = activeStaffCount();
+    $("planInfo").textContent = state.planMax ? `· ${used} su ${state.planMax} del tuo piano` : "";
     // filtri: tutti / al lavoro / assenti / ore da recuperare / ore non confermate
     const FILTERS = [["", "Tutti"], ["lavoro", "🟢 Al lavoro"], ["assenti", "⚪ Non timbrato o assenti"], ["recuperare", "🔴 Ore da recuperare"], ["nonconf", "✋ Ore non confermate"]];
     const sf = state.staffFilter || "";
@@ -6338,7 +6411,9 @@ Digital Valut non ne ha una copia.</p>
   const MAN_STORE = "cartellino.manuali";
   function manuals() { try { const v = JSON.parse(localStorage.getItem(MAN_STORE) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
   function buildAllShifts() {
-    const shifts = L.buildShifts(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
+    const out = L.applyOutReasons(L.applyCorrections(state.data.attendances, state.data.corrections, decisions()));
+    state.permits = out.permits; // permessi a ore (uscita "permesso / visita" e rientro lo stesso giorno)
+    const shifts = L.buildShifts(out.attendances);
     const pe = people();
     for (const m of manuals()) {
       const v = pe[m.cf] || {};
@@ -6386,7 +6461,16 @@ Digital Valut non ne ha una copia.</p>
     const link = L.inviteLink(state.company.appUrl || appUrl, signed);
     showSend(`Invito per ${v.invito.cognome} ${v.invito.nome}`, "Mandalo con WhatsApp (o fagli inquadrare il QR): lo tocca e Cartellino si attiva già con i suoi dati. Il link è solo per lui.", link);
   }
+  /** Dipendenti che contano per il piano: creati dal datore, non eliminati, non usciti. */
+  function activeStaffCount() {
+    return Object.values(people()).filter((v) => v && v.invito && !v.eliminato && !v.uscito).length;
+  }
+  window.__cartellinoPlan = () => ({ max: state.planMax || 0, used: activeStaffCount() }); // test automatici
   $("newInvite").onclick = async () => {
+    if (state.planMax && activeStaffCount() >= state.planMax) {
+      $("newError").textContent = `Il tuo piano arriva a ${state.planMax} dipendenti. Per aggiungerne altri chiama Digital Valut (info@digitalvalut.it). Chi non lavora più qui non conta: "Non lavora più qui" libera il posto.`;
+      return;
+    }
     const data = { nome: $("newNome").value, cognome: $("newCognome").value, cf: $("newCf").value.replace(/\s+/g, "").toUpperCase(), mansione: $("newMansione").value };
     const err = L.checkEmployee(data);
     if (err) { $("newError").textContent = err; return; }
