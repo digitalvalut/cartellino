@@ -144,6 +144,7 @@
   #personCard .ptoday { font-size: 17px; border-radius: 12px; padding: 10px 14px; margin: 14px 0; border: 1px solid var(--line); }
   #personCard .ptoday.in { background: #f0fdf4; border-color: #bbf7d0; } #personCard .ptoday.none { background: #fffbeb; border-color: #fde68a; }
   /* DASHBOARD SEMPLICE: numeri grandi, ricerca, filtri, riga "tutto salvato" */
+  #results #stats { display: none !important; }
   .bignums { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 6px 0 14px; }
   .bignum { border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px; background: #fff; cursor: pointer; text-align: left; font: inherit; color: var(--ink); }
   .bignum .n { font-size: 34px; font-weight: 800; margin-right: 6px; }
@@ -515,12 +516,13 @@
       <button data-tab="dash" class="active">🏠 Cruscotto</button>
       <button data-tab="summary">Riepilogo</button>
       <button data-tab="detail">Giorno per giorno</button>
-      <button data-tab="leaves">Assenze</button>
-      <button data-tab="checks">Controlli</button>
+      <button data-tab="leaves">Richieste</button>
+      <button data-tab="checks" class="hidden">⚠️ Controlli</button>
       <button data-tab="people">Dipendenti</button>
     </div>
     <div class="panel" data-panel="dash"><div id="dash"></div></div>
     <div class="panel hidden" data-panel="summary"><div class="tablewrap"><table id="tSummary"></table></div>
+      <div id="calBox"></div>
       <p class="note">Ore calcolate solo su turni completi (ENTRATA + USCITA) con firma valida. Le assenze sono in giorni di calendario (quelle rifiutate non contano). Ordinarie, festive e notturne: nel file Excel per il consulente.</p></div>
     <div class="panel hidden" data-panel="detail"><div class="tablewrap"><table id="tDetail"></table></div></div>
     <div class="panel hidden" data-panel="leaves"><div class="tablewrap"><table id="tLeaves"></table></div>
@@ -4308,7 +4310,7 @@ var qrcode = function() {
   const DEFAULT_APP_URL = "https://digitalvalut.github.io/cartellino/";
   const DEFAULT_LICENZE_URL = "https://digitalvalut.github.io/cartellino/licenze.json";
   const DEFAULT_CASSETTA_URL = "https://cartellino-cassetta.burbeng78.workers.dev";
-  const AREA_VERSION = "202611271533"; // sostituito quando si crea il pacchetto
+  const AREA_VERSION = "202611280810"; // sostituito quando si crea il pacchetto
   const COLORS = ["0F62FE", "15803D", "B91C1C", "7C3AED", "C2410C", "0F172A"];
   const MAX_FILE_MB = 20;
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -4757,8 +4759,9 @@ var qrcode = function() {
     return `${s.placeTipo === "mezzo" ? "🚚" : "📍"} ${esc(s.place)} ${pill(s.geoIn)}${s.geoOut && s.geoOut !== s.geoIn ? " " + pill(s.geoOut) : ""}`;
   }
 
-  function decisionCell(l) {
+  function decisionCell(l, onlyStatus) {
     if (!l.valid) return "";
+    if (onlyStatus && !decisions()[l.id]) return `<span class="pill warn">Da decidere</span> <a href="#" data-goview="oggi">in Oggi ›</a>`;
     const d = decisions()[l.id];
     const ids = `data-id="${esc(l.id)}" data-cf="${esc(l.cf)}"`;
     if (d) {
@@ -4881,9 +4884,8 @@ var qrcode = function() {
     }).join("")}</tr>`).join("");
     const legend = '<div class="legend"><span style="--c:#bbf7d0">Lavorato</span><span style="--c:#fde68a">Da controllare (A)</span><span style="--c:#bfdbfe">Ferie (F)</span><span style="--c:#fecaca">Malattia (M)</span><span style="--c:#e9d5ff">Permesso (P)</span></div>';
 
-    $("dash").innerHTML = todoHtml +
-      `<details class="more"${document.body.dataset.view === "oggi" ? "" : " open"}><summary style="cursor:pointer;font-weight:800;font-size:17px;margin:8px 0">👷 Tutti i dipendenti</summary><div class="people">${cards || '<p class="empty">Nessun dipendente.</p>'}</div></details>` +
-      `<details class="more"${document.body.dataset.view === "oggi" ? "" : " open"}><summary style="cursor:pointer;font-weight:800;font-size:17px;margin:8px 0">📅 Calendario del mese</summary>${legend}<div class="tablewrap"><table class="cal">${head}${rows}</table></div></details>`;
+    $("dash").innerHTML = todoHtml;
+    $("calBox").innerHTML = `<h3 style="font-size:17px;margin:18px 0 6px">📅 Calendario del mese</h3>${legend}<div class="tablewrap"><table class="cal">${head}${rows}</table></div>`;
   }
 
   function renderPeople() {
@@ -4950,14 +4952,15 @@ var qrcode = function() {
       "Nessun turno in questo mese.");
 
     table($("tLeaves"),
-      [{ t: "Dipendente" }, { t: "Tipo" }, { t: "Dal" }, { t: "Al" }, { t: "Giorni nel mese", num: 1 }, { t: "Note" }, { t: "Firma" }, { t: "Decisione" }],
+      [{ t: "Dipendente" }, { t: "Tipo" }, { t: "Dal" }, { t: "Al" }, { t: "Giorni nel mese", num: 1 }, { t: "Note" }, { t: "Decisione" }],
       leaves.map((l) => ({ cls: l.valid ? "" : "invalid", cells: [esc(l.name), esc(LEAVE_LABEL[l.type] || l.type), fmtDate(l.startDate), fmtDate(l.endDate),
-        L.leaveDaysInMonth(l.startDate, l.endDate, m), esc(l.notes), l.valid ? `<span class="pill ok">valida</span>` : `<span class="pill bad">NON valida</span>`,
-        decisionCell(l)] })),
+        L.leaveDaysInMonth(l.startDate, l.endDate, m), esc(l.notes), l.valid ? decisionCell(l, true) : `<span class="pill bad">NON valida</span>`] })),
       "Nessuna assenza in questo mese.");
 
     const who = (cf) => (d.names.get(cf) ? `${d.names.get(cf)} (${cf})` : cf);
     const reports = [...d.lastReport.entries()].map(([cf, at]) => `<li><b>${esc(who(cf))}</b>: ultimo report del ${esc(fmtDateTime(at))}</li>`).join("");
+    const chkTab = document.querySelector('.tabs button[data-tab="checks"]');
+    if (chkTab) { chkTab.classList.toggle("hidden", !issues.length); chkTab.textContent = `⚠️ Controlli (${issues.length})`; }
     $("checks").innerHTML =
       (issues.length
         ? `<p class="bad">${issues.length} ${issues.length === 1 ? "segnalazione" : "segnalazioni"}:</p><ul>${issues.map((i) =>
@@ -5721,12 +5724,17 @@ Scrivi l'email del consulente in ⚙️ Impostazioni → "Orario di lavoro e con
         ${v.nascosto ? `<button class="btn-small" data-act="unhide" ${ids}>Rimetti nell'elenco</button>` : v.uscito ? `<button class="btn-small" data-act="hide" ${ids}>Togli dall'elenco</button>` : ""}
         ${v.invito ? `<button class="btn-small" data-staff="delete" ${ids}>🗑 Elimina</button>` : ""}
         ${d ? `<button class="btn-small" data-sendone="${esc(cf)}">✉️ Manda solo lui al consulente (${esc(monthLabel(state.month || romeToday().slice(0, 7)))})</button>` : ""}
+      </div>
+      <details class="psettings" style="border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:10px 0">
+        <summary style="cursor:pointer;font-weight:800">⚙️ Impostazioni del dipendente (orario, ferie, straordinari)</summary>
+        <div class="acts" style="margin-top:8px">
         <label class="note">Ore al giorno <input type="number" min="1" max="24" step="0.5" data-ore="${esc(cf)}" value="${esc(v.oreGiorno || "")}" placeholder="${esc(String(L.normalizeRules(loadJson("cartellino.orario")).oreGiorno))}" style="width:70px"></label>
         <label class="note"><input type="checkbox" data-sab="${esc(cf)}" ${v.sabato ? "checked" : ""}> Lavora il sabato</label>
         <label class="note">🏖️ Ferie rimaste oggi <input type="number" min="0" max="400" step="0.5" data-ferie="${esc(cf)}" value="${fer ? esc(String(fer.left)) : ""}" placeholder="es. 18" style="width:70px"> giorni</label>
         <label class="note">ogni anno <input type="number" min="0" max="60" step="0.5" data-ferieanno="${esc(cf)}" value="${esc(v.ferieAnno || "")}" placeholder="es. 26" style="width:64px"> (si aggiungono il 1° gennaio)</label>
         <label class="note">Straordinari <select data-banca="${esc(cf)}"><option value="">💶 pagati in busta paga</option><option value="1" ${v.bancaOre ? "selected" : ""}>🏦 in banca ore (si recuperano)</option></select></label>
-      </div>
+        </div>
+      </details>
       <p class="note">Saldo: <b style="color:#15803d">+</b> = ha lavorato più del suo orario · <b style="color:#b91c1c">−</b> = ore da recuperare. Ferie, malattia, permessi, sabati di riposo e festivi non contano.</p>`;
     $("personCard").classList.remove("hidden");
   }
